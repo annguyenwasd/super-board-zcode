@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-protected-push.py"
+            "command": "python3 \"${ZCODE_PROJECT_DIR}\"/.zcode/hooks/guard-protected-push.py"
           }
         ]
       }

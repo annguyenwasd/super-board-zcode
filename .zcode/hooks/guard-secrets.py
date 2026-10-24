@@ -1,0 +1,1 @@
+../../.agents/hooks/guard-secrets.py

@@ -26,29 +26,29 @@ OUT=$(python3 "$SETUP" fix --root "$T" --no-helpers || true)
 echo "$OUT" | q '.fixed | index("super-board skills, scripts and board engine installed")' || fail "fix should install: $OUT"
 echo "$OUT" | q '.fixed | index("git repo created (git init)")' || fail "fix should git init: $OUT"
 echo "$OUT" | q '.missing == [] and .git == true and .upgraded == false' || fail "re-check after fix should have nothing missing: $OUT"
-[ -x "$T/.claude/bin/super-board-setup.py" ] || fail "the setup script installs itself into .claude/bin"
+[ -x "$T/.zcode/bin/super-board-setup.py" ] || fail "the setup script installs itself into .zcode/bin"
 TXT=$(python3 "$SETUP" check --root "$T" --text || true)
 echo "$TXT" | grep -q "✓ super-board skills, scripts and board engine present" || fail "text report should list what is present: $TXT"
 
 # 1b — missing safety helpers must trigger a repair even on a current installation.
 for helper in super-board-approval.py super-board-github-read.py super-board-project-verifier.py; do
-  rm "$T/.claude/bin/$helper"
+  rm "$T/.zcode/bin/$helper"
   OUT=$(python3 "$SETUP" check --root "$T" || true)
   echo "$OUT" | q --arg helper "script $helper" '.missing | index($helper)' \
     || fail "missing $helper must be reported: $OUT"
   OUT=$(python3 "$SETUP" fix --root "$T" --no-helpers || true)
-  [ -x "$T/.claude/bin/$helper" ] || fail "repair must restore $helper"
+  [ -x "$T/.zcode/bin/$helper" ] || fail "repair must restore $helper"
   echo "$OUT" | q '.missing == []' || fail "repair must leave no missing scripts: $OUT"
 done
 
 # 2 — upgrade: an older super-board (VERSION 1.8.2, removed skill folders, a qa-only
 #     config with Skipped, old collect keys, telegram) is detected and upgraded with
 #     no question, backed up first, and listed as "Upgraded for you".
-T="$WORK/old"; mkdir -p "$T/.claude/skills/super-board" "$T/.claude/super-board/configs"
+T="$WORK/old"; mkdir -p "$T/.zcode/skills/super-board" "$T/.zcode/super-board/configs"
 git -C "$T" init -q
-echo "1.8.2" > "$T/.claude/skills/super-board/VERSION"
-for d in super-refine cleanup-wt arch-loop; do mkdir -p "$T/.claude/skills/$d"; echo x > "$T/.claude/skills/$d/SKILL.md"; done
-cat > "$T/.claude/super-board/configs/books.json" <<'JSON'
+echo "1.8.2" > "$T/.zcode/skills/super-board/VERSION"
+for d in super-refine cleanup-wt arch-loop; do mkdir -p "$T/.zcode/skills/$d"; echo x > "$T/.zcode/skills/$d/SKILL.md"; done
+cat > "$T/.zcode/super-board/configs/books.json" <<'JSON'
 {"version":1,"variant":"qa-only","project":{"owner":"eric","number":2},
  "columns":["Ready","QA","Review","Done","Blocked","Skipped"],
  "repo":{"path":".","remote":"https://github.com/eric/books.git"},
@@ -64,18 +64,18 @@ echo "$OUT" | q '.upgraded == true and .from == "1.8.2"' || fail "fix should rep
 echo "$OUT" | q '.fixed | any(test("^skills updated; added .*super-collect"))' || fail "upgrade should name the added skills: $OUT"
 echo "$OUT" | q '.fixed | index("removed old folders: super-refine, cleanup-wt, arch-loop")' || fail "old folders line missing: $OUT"
 echo "$OUT" | q '.fixed | any(test("^config moved to the new keys"))' || fail "config line missing: $OUT"
-for d in super-refine cleanup-wt arch-loop; do [ ! -e "$T/.claude/skills/$d" ] || fail "$d should be removed"; done
+for d in super-refine cleanup-wt arch-loop; do [ ! -e "$T/.zcode/skills/$d" ] || fail "$d should be removed"; done
 B=$(echo "$OUT" | jq -r .backup)
-[ -f "$T/$B/.claude/skills/arch-loop/SKILL.md" ] && [ -f "$T/$B/.claude/super-board/configs/books.json" ] \
+[ -f "$T/$B/.zcode/skills/arch-loop/SKILL.md" ] && [ -f "$T/$B/.zcode/super-board/configs/books.json" ] \
   || fail "old folders and config must be backed up first (backup: $B)"
-C="$T/.claude/super-board/configs/books.json"
+C="$T/.zcode/super-board/configs/books.json"
 q '(has("variant") | not) and ._qa_all == true' "$C" || fail "variant must go, qa-only remembered for the board: $(cat "$C")"
 q '.columns == ["Backlog","Ready","Building","QA","Review","Blocked","Done"]' "$C" || fail "columns must be the v3 seven"
 q '.collect.sources == ["sentry","github","prs","architecture"] and (.collect | has("lookback_runs") | not)' "$C" || fail "collect keys not migrated"
 q '.merge_policy.default == "human" and .notifications.channel == "session" and (.refine | has("qa_hook_rounds") | not)' "$C" \
   || fail "merge rule / notifications / refine not migrated: $(cat "$C")"
-q '.host == "claude"' "$C" || fail "fix must always write the top-level host (from --host): $(cat "$C")"
-[ ! -e "$T/.claude/super-board/upgrade.json" ] || fail "upgrade.json should be cleared once the upgrade is done"
+q '.host == "zcode"' "$C" || fail "fix must always write the top-level host (from --host): $(cat "$C")"
+[ ! -e "$T/.zcode/super-board/upgrade.json" ] || fail "upgrade.json should be cleared once the upgrade is done"
 TXT=$(python3 "$SETUP" check --root "$T" --text || true)
 echo "$TXT" | grep -q "Upgraded for you" && fail "a finished upgrade must not be reported again"
 
@@ -276,7 +276,7 @@ q '[.items[] | {(.id): .status}] | add == {"I1":"Done","I2":"Building","I3":"Rev
   || fail "prune-empty must put every wiped status back: $(jq -c .items "$GH_STATE")"
 echo "$OUT" | q '.restored == 3' || fail "three cards should be restored: $OUT"
 BK=$(echo "$OUT" | jq -r .status_backup)
-case "$BK" in "$WORK/.claude/super-board/backup/board-2-"*.json) ;; *) fail "backup path wrong: $BK" ;; esac
+case "$BK" in "$WORK/.zcode/super-board/backup/board-2-"*.json) ;; *) fail "backup path wrong: $BK" ;; esac
 q '. == {"I1":"Done","I2":"Building","I3":"Review","I4":null}' "$BK" || fail "backup must hold the pre-rewrite statuses: $(cat "$BK")"
 
 # 11 — a gh that does not surface `status`: the snapshot falls back to GraphQL
@@ -299,16 +299,19 @@ OUT=$(PATH="$WORK/bin:$PATH" python3 "$SETUP" board-migrate --owner eric --numbe
 cmp -s "$GH_STATE" "$WORK/before.json" || fail "dry-run changed board state: $(cat "$GH_STATE")"
 ! grep -Eq '^(project item-edit|label create|issue edit)' "$GH_LOG" || fail "dry-run made a write: $(cat "$GH_LOG")"
 [ "$(grep -c '^api graphql' "$GH_LOG")" = 2 ] || fail "dry-run should only read options and the complete card snapshot over GraphQL: $(cat "$GH_LOG")"
-[ ! -e "$WORK/dry/.claude" ] || fail "dry-run must not write a backup file"
+[ ! -e "$WORK/dry/.zcode" ] || fail "dry-run must not write a backup file"
 echo "$OUT" | q '.status_backup == null and .restored == 0 and .added_columns != []' || fail "dry-run report wrong: $OUT"
 
-# 13 — config `host`: check accepts claude / codex / opencode / zcode, flags anything else, and
-#      fix never overwrites a host that is already set.
-H="$WORK/bare/.claude/super-board/configs"; mkdir -p "$H"
-for h in claude codex opencode zcode; do
+# 13 — config `host`: check accepts zcode only (this pack is ZCode-only), flags
+#      anything else, and fix never overwrites a host that is already set.
+H="$WORK/bare/.zcode/super-board/configs"; mkdir -p "$H"
+printf '{"host":"zcode"}' > "$H/b.json"
+OUT=$(python3 "$SETUP" check --root "$WORK/bare" || true)
+echo "$OUT" | q '.host_errors == {}' || fail "host zcode must be accepted: $OUT"
+for h in claude codex gemini; do
   printf '{"host":"%s"}' "$h" > "$H/b.json"
   OUT=$(python3 "$SETUP" check --root "$WORK/bare" || true)
-  echo "$OUT" | q '.host_errors == {}' || fail "host $h must be accepted: $OUT"
+  echo "$OUT" | q '.host_errors != {}' || fail "host $h must be flagged: $OUT"
 done
 printf '{"host":"gemini"}' > "$H/b.json"
 OUT=$(python3 "$SETUP" check --root "$WORK/bare" || true)
@@ -320,15 +323,15 @@ python3 "$SETUP" fix --root "$WORK/bare" --no-helpers >/dev/null || true
 q '.host == "gemini"' "$H/b.json" || fail "fix must not guess over a set host: $(cat "$H/b.json")"
 rm "$H/b.json"
 
-# 14 — `--host zcode`: the CLI gate accepts it, check validates hook wiring in
-#      .zcode/config.json (hooks.events, same commands as the snippet) instead of
-#      .claude/settings.json, and unknown hosts stay rejected. The fixture may
-#      already carry zcode wiring (install.sh links the ambient host), so drop it
-#      first; helper readiness stays out of the assertions — it is ambient, and
-#      only `missing` is this scenario's subject.
+# 14 — the default host is zcode: check validates hook wiring in
+#      .zcode/config.json (hooks.events, same commands as the snippet), and any
+#      other --host is rejected. The fixture may already carry zcode wiring
+#      (install.sh links the ambient host), so drop it first; helper readiness
+#      stays out of the assertions — it is ambient, and only `missing` is this
+#      scenario's subject.
 T="$WORK/bare"
 OUT=$(python3 "$SETUP" check --root "$T" --host zcode 2>&1 || true)
-echo "$OUT" | grep -q "must be claude" && fail "--host zcode must pass the CLI gate: $OUT"
+echo "$OUT" | grep -q "must be zcode" && fail "--host zcode must pass the CLI gate: $OUT"
 rm -f "$T/.zcode/config.json"
 OUT=$(python3 "$SETUP" check --root "$T" --host zcode || true)
 echo "$OUT" | q '.missing[0] | startswith(".zcode/config.json")' \
@@ -338,6 +341,6 @@ python3 "$PACK/scripts/super-board-settings.py" zcode-hooks "$T/.zcode/config.js
 OUT=$(python3 "$SETUP" check --root "$T" --host zcode || true)
 echo "$OUT" | q '.missing == []' || fail "wired .zcode/config.json must satisfy host zcode: $OUT"
 OUT=$(python3 "$SETUP" check --root "$T" --host gemini 2>&1 || true)
-echo "$OUT" | grep -q "must be claude" || fail "host gemini must still be rejected: $OUT"
+echo "$OUT" | grep -q "must be zcode" || fail "host gemini must still be rejected: $OUT"
 
 echo "PASS: test-setup.sh (14 scenarios)"

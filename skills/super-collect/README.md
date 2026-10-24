@@ -37,7 +37,7 @@ read-only. Secrets stay in `.env`: `SENTRY_AUTH_TOKEN` (scopes `event:read proje
 ## Install
 
 Ships in the super-board pack under `skills/super-collect/`; `install.sh` copies it to
-`.claude/skills/super-collect/`. Needs a super-board config, `gh`, `jq` and Python 3 (stdlib only).
+`.zcode/skills/super-collect/`. Needs a super-board config, `gh`, `jq` and Python 3 (stdlib only).
 
 Tests: `bash tests/test-collect-file.sh` · `bash tests/test-collect-fetchers.sh` ·
 `bash tests/test-collect-baseline.sh` · `python3 tests/test_collect_baseline.py` (offline, all in

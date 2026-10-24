@@ -24,8 +24,7 @@ includes the merge gate, guard hooks, installers, upgrade setup, preflight, depe
 usage limits, writing format, cleanup and workflow behavior tests. A new matching suite
 joins CI automatically. The runner prints every result and returns nonzero if any suite
 fails; it also refuses an empty suite. Some Python tests have shell wrappers and therefore
-run twice. Keep these tests offline and deterministic; paid agent evaluations belong in
-`evals/` and are not part of this gate.
+run twice. Keep these tests offline and deterministic.
 
 Dependencies: Bash, Python 3, Git, jq, Node.js, curl and tar. GitHub's Linux/macOS runners
 provide the command-line utilities; the safety workflow tests Python 3.9 and 3.12 with

@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""PreToolUse(Bash) guard: a git worktree may only live under <repo>/.claude/worktrees/.
+"""PreToolUse(Bash) guard: a git worktree may only live under <repo>/.zcode/worktrees/.
 
 A worktree created next to the repo (`git worktree add ../proj-feature`) sits outside
-every sweep -- cleanup-wt, Claude Code's own -- long after its PR merges. Claude
+every sweep -- cleanup-wt, ZCode's own -- long after its PR merges. ZCode
 Code's docs show that very pattern, so it keeps coming back.
 
 Reads the Bash command, finds every `git worktree add` / `git worktree move`,
 resolves its target (honouring `cd X &&` and `git -C X`) and denies the call when the
-target is outside `.claude/worktrees/` of the repo git will run in. Its own errors
+target is outside `.zcode/worktrees/` of the repo git will run in. Its own errors
 never block a tool call: anything unexpected exits 0 with no output.
 
-Adapted from BookKeepingApp's .claude/hooks/guard-worktree-path.js (Eric Tech).
+Adapted from BookKeepingApp's .zcode/hooks/guard-worktree-path.js (Eric Tech).
 """
 import json
 import os
@@ -18,7 +18,7 @@ import re
 import subprocess
 import sys
 
-ALLOWED_DIR = os.path.join(".claude", "worktrees")
+ALLOWED_DIR = os.path.join(".zcode", "worktrees")
 ADD_VALUE_OPTS = {"-b", "-B", "--reason"}
 GIT_VALUE_OPTS = {"-c", "--git-dir", "--work-tree", "--namespace", "--exec-path", "--config-env"}
 
@@ -137,7 +137,7 @@ def worktree_targets(command, cwd, env):
 
 
 def repo_root(toplevel):
-    """The main checkout's root, from it or any worktree under .claude/worktrees/."""
+    """The main checkout's root, from it or any worktree under .zcode/worktrees/."""
     marker = os.sep + ALLOWED_DIR + os.sep
     at = toplevel.find(marker)
     return toplevel if at == -1 else toplevel[:at]
@@ -157,9 +157,9 @@ def check(command, cwd, root_of, env):
         where = ("resolves to " + resolved) if resolved else "cannot be resolved before it runs"
         return (
             'Blocked: worktree path "%s" %s, outside %s/.\n'
-            "Worktrees live only under .claude/worktrees/ so cleanup-wt and Claude Code's sweep can see them.\n"
-            'Prefer the Agent tool\'s isolation: "worktree" or `claude --worktree <name>`. If you need git directly:\n'
-            "  git worktree add .claude/worktrees/<name> -b <branch> <base>\n"
+            "Worktrees live only under .zcode/worktrees/ so cleanup-wt and ZCode's sweep can see them.\n"
+            'Prefer the Agent tool\'s worktree isolation. If you need git directly:\n'
+            "  git worktree add .zcode/worktrees/<name> -b <branch> <base>\n"
             "(from the repo root, with a literal path)." % (raw, where, allowed)
         )
     return None
@@ -184,7 +184,7 @@ def main():
         cwd = payload.get("cwd") or os.getcwd()
 
         def root_of(d):
-            top = toplevel_of(d) or (os.environ.get("CLAUDE_PROJECT_DIR") if d == cwd else None)
+            top = toplevel_of(d) or (os.environ.get("ZCODE_PROJECT_DIR") if d == cwd else None)
             return repo_root(top) if top else None
 
         reason = check(command, cwd, root_of, dict(os.environ))

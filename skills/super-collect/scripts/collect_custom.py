@@ -60,9 +60,9 @@ TIMEOUT = 20
 
 
 def mcp_servers():
-    """Names of the MCP servers Claude Code knows here (names only — values are never read out)."""
+    """Names of the MCP servers this workspace knows (names only — values are never read out)."""
     names = set()
-    for path in (".mcp.json", os.path.expanduser("~/.claude.json")):
+    for path in (".mcp.json",):
         try:
             data = json.load(open(path))
         except (OSError, ValueError):

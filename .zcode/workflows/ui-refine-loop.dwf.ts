@@ -286,7 +286,7 @@ const chainFor = (problems: Problem[]): string[] => {
 }
 
 // shortcut: a rejected ask (schema validation, context overflow) maps to null
-// and the round dies like a dead agent did on the Claude facade; upgrade when
+// and the round dies like a dead agent; upgrade when
 // ZCode grows a typed rejection worth distinguishing. The catch must sit inside
 // each Promise.all callback or one rejection kills the whole join.
 

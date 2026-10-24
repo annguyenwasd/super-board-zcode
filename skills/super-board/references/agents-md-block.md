@@ -18,16 +18,16 @@ Board: Backlog · Ready · Building · QA · Review · Blocked · Done. Labels r
 
 | Rule | Value |
 |---|---|
-| Config | `.claude/super-board/configs/<slug>.json` |
+| Config | `.zcode/super-board/configs/<slug>.json` |
 | Isolation | 1 card · 1 worktree · 1 branch |
 | Merge | auto for normal changes · money, auth, destructive schema (DROP/TRUNCATE/RENAME) → human · PR > 400 changed lines → human |
 | Migrations | additive → robot migrates allowed DBs only · live DB ALWAYS → 🙋 needs you |
 | Blocked card | block-template comment · last line `blocked-by:` · 🙋 = needs you |
-| Secrets | NEVER read `.env`; key names via `.claude/bin/super-board-env-check.sh` |
+| Secrets | NEVER read `.env`; key names via `.zcode/bin/super-board-env-check.sh` |
 
 ## Writing (super-board)
 
-| Thing | Format → `.claude/skills/super-board/references/writing-standard.md` |
+| Thing | Format → `.zcode/skills/super-board/references/writing-standard.md` |
 |---|---|
 | Commit, PR title | `<emoji> [type] scope: subject` + short bullets · ✨ feat 🐛 fix 🔧 chore ♻️ refactor 🧪 test 📝 docs |
 | PR body | blocks: status · Problem · Solution · AC + proof · history · Before\|After · Risk — `super-board-pr-body.sh` |

@@ -35,10 +35,10 @@ skip a hook (`--no-verify`).
 
 **Commit format.** The host wins.
 
-1. The host's `AGENTS.md`, `CLAUDE.md` or `CONTRIBUTING.md` defines a commit format: follow it
+1. The host's `AGENTS.md` or `CONTRIBUTING.md` defines a commit format: follow it
    (for example `#N: type: description`).
 2. Otherwise use section "1 · Commit" of the super-board writing standard
-   (`.claude/skills/super-board/references/writing-standard.md`): emoji, `[type]`, scope,
+   (`.zcode/skills/super-board/references/writing-standard.md`): emoji, `[type]`, scope,
    subject, 1–4 bullets, `Closes #N` when the commit finishes a ticket.
 3. Keep any attribution trailer the session asks for.
 
@@ -66,7 +66,7 @@ Runs only when a commit group touches `supabase/` (migrations, schema, functions
    a side to make the conflict go away.
 6. A hunk whose intent is unclear: stop and ask the user, showing both sides.
 7. Run the host's fast checks before concluding the merge: typecheck, lint and tests as the
-   host's `AGENTS.md`, `CLAUDE.md` or `package.json` documents them.
+   host's `AGENTS.md` or `package.json` documents them.
 8. Checks fail: fix the merge, not the checks. Still failing: stop and report.
 9. Conclude with `git commit --no-edit`.
 

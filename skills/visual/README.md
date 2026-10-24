@@ -31,4 +31,4 @@ Adapted from BuilderIO/skills (MIT, visual-recap and visual-plan); diagram style
 
 ## Install
 
-Ships in the super-board pack as a secondary skill. `install.sh` copies `skills/visual/` to `.claude/skills/visual/`. Needs `git` and Python 3 (stdlib only); the self-check screenshot uses headless Chrome when present.
+Ships in the super-board pack as a secondary skill. `install.sh` copies `skills/visual/` to `.zcode/skills/visual/`. Needs `git` and Python 3 (stdlib only); the self-check screenshot uses headless Chrome when present.

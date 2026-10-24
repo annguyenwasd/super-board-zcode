@@ -10,28 +10,26 @@ by `scripts/super-board-readme-sync.py` from SKILL.md frontmatter and `skills/fa
 
 **`super-board` is an autonomous trader. The interactive session that invokes `/super-board run` is an *orchestrator*, NOT a worker.** Its only jobs are:
 
-1. Verify preconditions (clean git, no orphan workers, GraphQL quota, etc.).
-2. Dispatch per the config's `worker_backend`:
-   - `"workflow"` (default) — stay in-session and run the wave loop in `skills/super-board/references/run-workflow.md`: plan a wave, claim assignees, launch the `super-board-wave` dynamic workflow, reconcile, repeat. Lane agents inside the workflow do all product work.
-   - `"claude-p"` (legacy, explicit opt-in only) — spawn the headless runner `nohup .claude/bin/super-board-run.sh <slug> &`, report PID + log path, exit. The runner refuses to start (exit 78) unless the config sets this value.
-3. Report back to the user (dispatch confirmation, or one status line per wave).
+1. Verify preconditions (clean git, no orphan waves, GraphQL quota, etc.).
+2. Run the wave loop in `skills/super-board/references/run-workflow.md`: plan a wave, claim assignees, launch the `super-board-wave` dynamic workflow (`.zcode/workflows/super-board-wave.dwf.ts`), reconcile, repeat. Lane agents inside the workflow do all product work.
+3. Report back to the user (one status line per wave).
 
 The orchestrator MUST NOT:
 
-- Build, test, review, or fix issues itself. All product work is delegated to workflow lane agents (or `claude -p` workers on the legacy backend).
+- Build, test, review, or fix issues itself. All product work is delegated to workflow lane agents.
 - Patch the dispatcher script or skill files mid-run, even if it sees a problem. Capture the symptom and tell the user; wait for explicit approval.
-- Wait on individual workers or relay their work. They write their evidence back to the GitHub issue + PR. The orchestrator's user-facing output is the dispatch confirmation (claude-p) or one short report per wave (workflow), not the run result.
+- Wait on individual lanes or relay their work. They write their evidence back to the GitHub issue + PR. The orchestrator's user-facing output is one short report per wave, not the run result.
 - Hold context for multi-card progress. State lives on the GitHub Project board + the inflight lockfiles, not in the orchestrator's session.
 
-If a problem surfaces during the run, the orchestrator's reply is: "I saw X. Want me to dig in or stop the runner?" — not "I went ahead and fixed it."
+If a problem surfaces during the run, the orchestrator's reply is: "I saw X. Want me to dig in or stop the run?" — not "I went ahead and fixed it."
 
 ## Worker rules
 
-Workers (`super-build`, `super-qa`, `super-review`) share the dispatcher's `gh` token bucket. They MUST:
+Workers (`super-build`, `super-qa`, `super-review`) share the orchestrator's `gh` token bucket. They MUST:
 
-- Required GitHub reads use `.claude/bin/super-board-github-read.py`; exit 79 stops the run.
+- Required GitHub reads use `.zcode/bin/super-board-github-read.py`; exit 79 stops the run.
 - Check its `--check` before GitHub writes, migrations, merges, and new dispatch; preserve work when halted.
-- Source `.claude/bin/super-board-gh-guard.sh` (`scripts/` in this repo) at worker start.
+- Source `.zcode/bin/super-board-gh-guard.sh` (`scripts/` in this repo) at worker start.
 - Call `sb_gh_guard_check 200` before any burst of `gh` calls.
 - Prefer local `git blame` / `git log` over `gh api graphql` for any sub-agent that doesn't need fresh state.
 - Cap adversarial sub-agents at 50 gh calls each. If a sub-agent runs out, it returns `confidence: insufficient_data` rather than burning the shared quota.
@@ -41,26 +39,26 @@ See `skills/super-board/references/rate-limit-etiquette.md` for the full discipl
 
 ## Installation contract
 
-`install.sh [--no-hooks] [--protect-main] [--hosts claude,codex,opencode,zcode] <target>` copies the pack
-once into the target project's shared `.agents/` tree, then links each host folder into it: one
-link per skill under `skills/`, one per file under `bin/`, `workflows/`, `hooks/`. `.claude/` is
-always linked; `.codex/`, `.opencode/` and `.zcode/` only when that folder already exists, a config
-`host` key names it, `super-board-host.sh` reports it, or `--hosts` asks. A real-directory `.claude/`
-install is replaced by links on upgrade; a user's own links and anything not super-board's are
-left alone; where no symlink can be made the file is copied. Settings and run state stay in `.claude/`
-(Claude hooks) and `.zcode/config.json` (ZCode hooks, `hooks.events` shape, only when zcode is linked).
+`install.sh [--no-hooks] [--protect-main] <target>` copies the pack once into the
+target project's shared `.agents/` tree, then links the `.zcode/` host folder into
+it: one link per skill under `skills/`, one per file under `bin/` and `hooks/`, and
+the `.dwf.ts` workflow sources into `.zcode/workflows/`. A real-directory `.zcode/`
+install is replaced by links on upgrade; a user's own links and anything not
+super-board's are left alone; where no symlink can be made the file is copied. Run
+state lives in `.zcode/super-board/`; guard hooks are wired into `.zcode/config.json`
+(ZCode `hooks.events` shape, `enabled: true`).
 
 ```
 .agents/
 ├── skills/<all eight>/...
-├── hooks/guard-*.py, cleanup-wt.py   (wired into settings.json; --no-hooks skips)
-├── workflows/super-board-wave.js, ui-refine-loop.js   (+ .zcode/workflows/*.dwf.ts ZCode ports)
+├── hooks/guard-*.py, cleanup-wt.py   (wired into .zcode/config.json; --no-hooks skips)
 └── bin/super-board-*.sh (incl. pr-body), super-board-*.py (status, merge-policy, agents-md, settings, setup), super-qa-file-bug.sh, super-review-file-refactor.sh
+.zcode/workflows/super-board-wave.dwf.ts, ui-refine-loop.dwf.ts   (linked from the pack)
 ```
 
 It also refreshes the managed `<!-- super-board:begin … -->` block in the target's AGENTS.md when
 one exists (nothing outside the markers), records an older install in
-`.claude/super-board/upgrade.json`, prints grouped emoji output, and asks nothing:
+`.zcode/super-board/upgrade.json`, prints grouped emoji output, and asks nothing:
 `super-board onboard` asks the questions. Onboard's 🔍 Checks (`scripts/super-board-setup.py`)
 fixes must-haves and finishes upgrades with no question.
 
@@ -71,7 +69,7 @@ per-board `variant`. Labels `qa` · `bug` · `feature` route cards: `qa` skips B
 else (and no label) is built. Change routing in `scripts/super-board-wave-plan.sh`,
 `workflows/super-board-wave.js` and `run.md` → "Lanes and label routing" together.
 
-Skills call the dispatcher scripts as `.claude/bin/<script>`.
+Skills call the dispatcher scripts as `.zcode/bin/<script>`.
 
 ## Writing
 
@@ -96,6 +94,3 @@ Run `bash tests/run-safety.sh` for the offline suite. A pushed `v*` tag runs the
 on Linux/macOS plus status-reader smoke checks, then publishes only if they pass. Follow
 [RELEASING.md](RELEASING.md); it also lists the settings needed to limit manual bypass.
 
-## Map pages (diagrams/)
-
-Every map page must be listed in the nav and in Explore, from the registry `diagrams/_shared/maps.json`. To add one: create `diagrams/<map>/map.json` (or `map.py`), add its entry (title, blurb, path, thumb, logo) to the registry, add a 960x600 thumb, run `python3 diagrams/_shared/sync_explore.py` then `python3 diagrams/_shared/build_skillmap.py <map>`. The build and `sync_explore.py --check` fail if a map page has no registry entry or the Explore cards are stale.

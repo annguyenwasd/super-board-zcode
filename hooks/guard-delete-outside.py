@@ -2,7 +2,7 @@
 """PreToolUse(Bash) guard: never delete files outside the project.
 
 Denies `rm`, `rmdir`, `unlink`, `find ... -delete` / `find ... -exec rm`, and `git clean`
-when a target resolves outside $CLAUDE_PROJECT_DIR, and always when it is `/` or the home
+when a target resolves outside the project dir, and always when it is `/` or the home
 directory itself. Paths are resolved against the hook's `cwd`, honouring `cd X &&`; `~`,
 `$HOME` and other set variables are expanded the way the shell would. A word whose value
 cannot be known before it runs (a `$(...)`, or a variable assigned earlier in the same
@@ -190,7 +190,7 @@ def main():
         if not isinstance(command, str):
             return
         cwd = payload.get("cwd") or os.getcwd()
-        project = os.path.normpath(os.environ.get("CLAUDE_PROJECT_DIR") or cwd)
+        project = os.path.normpath(os.environ.get("ZCODE_PROJECT_DIR") or cwd)
         reason = check(command, cwd, project, dict(os.environ))
         if reason:
             print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse",

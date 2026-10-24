@@ -36,8 +36,8 @@ Standalone only: you start it. The super-board lanes never run it.
 
 ## Install
 
-Ships in the super-board pack. Copy `skills/ui-refine-loop/` to `.claude/skills/ui-refine-loop/` and `workflows/ui-refine-loop.js` to `.claude/workflows/`. You need `git`, `node`, `gh`, and Playwright resolvable from your repo (`npx playwright install chromium`).
+Ships in the super-board pack. Copy `skills/ui-refine-loop/` to `.zcode/skills/ui-refine-loop/` and `workflows/ui-refine-loop.js` to `.zcode/workflows/`. You need `git`, `node`, `gh`, and Playwright resolvable from your repo (`npx playwright install chromium`).
 
-**Impeccable** is strongly recommended. Both layouts are detected: v4.4+ (`scripts/impeccable` launcher) and v4.0.x (`node scripts/detect.mjs`). Detection looks in `.claude/skills` and `.agents/skills` of the repo and its parents, then `~`. Without Impeccable the loop warns loudly and falls back to a built-in rubric. If your app needs a sign-in, data states or an unusual dev command, add a `refine` block to your super-board config (`references/config.md`).
+**Impeccable** is strongly recommended. Both layouts are detected: v4.4+ (`scripts/impeccable` launcher) and v4.0.x (`node scripts/detect.mjs`). Detection looks in `.zcode/skills` and `.agents/skills` of the repo and its parents, then `~`. Without Impeccable the loop warns loudly and falls back to a built-in rubric. If your app needs a sign-in, data states or an unusual dev command, add a `refine` block to your super-board config (`references/config.md`).
 
 Test: `bash tests/test-ui-refine-loop-workflow.sh && bash tests/test-ui-refine-loop-setup.sh`

@@ -28,7 +28,7 @@
 # Owner/number/repo come from --config (project.owner, project.number,
 # repo.remote), else $BUILD_LOOP_OWNER / $BUILD_LOOP_PROJECT and the origin remote.
 #
-# Cache: <main checkout>/.claude/super-board/cache/board-<owner>-<number>.json,
+# Cache: <main checkout>/.zcode/super-board/cache/board-<owner>-<number>.json,
 # shared by every worktree. Option ids are reminted whenever someone edits the
 # column list, so a failed move drops the cache, re-reads it once, and retries
 # once — a stale id costs one extra point, never a wrong move.
@@ -84,8 +84,8 @@ cache_dir() {
   if [ -n "${SB_CARD_CACHE_DIR:-}" ]; then echo "$SB_CARD_CACHE_DIR"; return; fi
   local common
   common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
-  if [ -n "$common" ]; then echo "$(dirname "$common")/.claude/super-board/cache"
-  else echo "$PWD/.claude/super-board/cache"; fi
+  if [ -n "$common" ]; then echo "$(dirname "$common")/.zcode/super-board/cache"
+  else echo "$PWD/.zcode/super-board/cache"; fi
 }
 CACHE_DIR=$(cache_dir)
 CACHE="$CACHE_DIR/board-${OWNER}-${NUMBER}.json"

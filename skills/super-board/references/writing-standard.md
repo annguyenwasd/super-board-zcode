@@ -84,7 +84,7 @@ Closes #790
 **Title** = commit subject format: `🐛 [fix] receipts: show a size error over 10 MB`.
 
 **Body** = marker blocks, in this order. A lane rewrites only its own blocks, with
-`.claude/bin/super-board-pr-body.sh` (it refuses when the PR head moved since you read it).
+`.zcode/bin/super-board-pr-body.sh` (it refuses when the PR head moved since you read it).
 `super-board-pr-body.sh --skeleton` prints an empty body with every marker.
 
 | Block | Marker | Written by | When | Required |

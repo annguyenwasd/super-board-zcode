@@ -3,7 +3,7 @@
 #
 # Sourced by super-board workers (Builder / Tester / Reviewer) before any
 # burst of gh calls. The dispatcher's gh_rate_guard only protects the
-# dispatcher's own ticks; workers run as independent claude -p sessions and
+# dispatcher's own ticks; workers run as independent workflow subagents and
 # share the same gh-auth bucket. Without this guard, a single Reviewer in
 # adversarial mode can drain the 5000/hr GraphQL bucket and the next tick
 # of the dispatcher (and every other worker on the same machine) opens to

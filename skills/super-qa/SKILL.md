@@ -21,7 +21,7 @@ on missing requirements and recheck each conditional helper before use.
 
 Before iter 1, resolve a test login. **Never ask the user; discover or create.** Order:
 
-1. **Cached creds** at `.claude/settings.local.json` `.e2e.user` / `.e2e.pass` — use them as-is.
+1. **Cached creds** at `.zcode/settings.local.json` `.e2e.user` / `.e2e.pass` — use them as-is.
 2. **Env-file fallback** — read in order: `.env.production.local`, `.env.local`, `.env`. Pull `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`. If both present, auto-create `e2e-test@<owner-domain>` (owner from `git config user.email` domain, fallback `erictech.ca`) via:
    ```bash
    curl -sS -X POST "$SUPABASE_URL/auth/v1/admin/users" \
@@ -30,7 +30,7 @@ Before iter 1, resolve a test login. **Never ask the user; discover or create.**
      -H "Content-Type: application/json" \
      -d "{\"email\":\"$E2E_USER\",\"password\":\"$E2E_PASS\",\"email_confirm\":true,\"user_metadata\":{\"role\":\"e2e-test\",\"created_by\":\"super-qa-bootstrap\"}}"
    ```
-   Generate a 24-char random password (`openssl rand -base64 24 | tr -d '/+=' | cut -c1-24`). Save to `.claude/settings.local.json` `.e2e` so the next run skips bootstrap. Verify by logging in (`POST /auth/v1/token?grant_type=password` returns access_token).
+   Generate a 24-char random password (`openssl rand -base64 24 | tr -d '/+=' | cut -c1-24`). Save to `.zcode/settings.local.json` `.e2e` so the next run skips bootstrap. Verify by logging in (`POST /auth/v1/token?grant_type=password` returns access_token).
 3. **Unauth-only fallback** — if neither cached creds nor env-file admin key exist, log "no admin key — restricting to public routes" and proceed with `/login`, `/signup`, `/forgot-password` only. Do NOT halt.
 
 The bootstrap is **non-interactive**. If the curl returns an existing-user error (`User already registered`), reset the password via the same admin endpoint and continue. Save creds either way.
@@ -193,7 +193,7 @@ This is a carved exception to the project rule "ask before `gh issue create`": t
 
 ### Required issue body template
 
-Every auto-filed finding must give a future headless Claude/Super Build session enough context to fix it without re-discovering the bug from scratch:
+Every auto-filed finding must give a future Super Build session enough context to fix it without re-discovering the bug from scratch:
 
 ```markdown
 ## Summary
@@ -557,12 +557,12 @@ Safety rails (enforced by the iteration preamble):
 ## Files involved
 
 ```
-.claude/skills/super-qa/
+.zcode/skills/super-qa/
 ├─ SKILL.md                            ← orchestrator instructions (this file)
 └─ references/
    └─ iteration-preamble.md            ← worker contract (verbatim prompt)
 
-scripts/super-qa-file-bug.sh           ← files a red spec onto the QA board (installed to .claude/bin/)
+scripts/super-qa-file-bug.sh           ← files a red spec onto the QA board (installed to .zcode/bin/)
 
 docs/super-qa/
 ├─ README.md                           ← operator's guide
@@ -619,7 +619,7 @@ shipped code.
 
 When invoked by super-board (env `SUPER_BOARD_RUN=1` or invocation contains "super-board run"):
 
-- **GitHub budget** — every "move card" is `.claude/bin/super-board-card.sh --config <cfg> move <N> <Status>` (1 GraphQL point; `gh project item-list` / `field-list` cost ~100–200). Comments, labels and PR reads go over REST; [rate-limit-etiquette.md](../super-board/references/rate-limit-etiquette.md) → "Price list" has the calls.
+- **GitHub budget** — every "move card" is `.zcode/bin/super-board-card.sh --config <cfg> move <N> <Status>` (1 GraphQL point; `gh project item-list` / `field-list` cost ~100–200). Comments, labels and PR reads go over REST; [rate-limit-etiquette.md](../super-board/references/rate-limit-etiquette.md) → "Price list" has the calls.
 
 ### State protocol (same as super-build)
 - Read from issue + PR comments + PR review threads.
@@ -627,12 +627,12 @@ When invoked by super-board (env `SUPER_BOARD_RUN=1` or invocation contains "sup
 - After pushing tests, evidence or fixes to a PR, refresh [PR author notes](../super-board/references/pr-author-notes.md) before the handoff. Keep file summaries current and explain critical changed sections on the PR.
 
 ### Card types
-- **Built card (`feature`, `bug`, no label):** worktree at `.claude/worktrees/issue-<N>-qa/` checked out at Builder's branch tip.
+- **Built card (`feature`, `bug`, no label):** worktree at `.zcode/worktrees/issue-<N>-qa/` checked out at Builder's branch tip.
 - **`qa` card (skipped Building):** move it Ready → QA yourself, create `issue-<N>-<slug>` from the base branch, test what is already there (run.md → "qa cards").
 - **A live URL with no repo** is not a board card: `/super-qa <url>` runs standalone.
 
 ### Lifecycle (Tester, first pass)
-See `.claude/skills/super-board/references/run.md` → Tester (first pass — repo-backed). Summary:
+See `.zcode/skills/super-board/references/run.md` → Tester (first pass — repo-backed). Summary:
 1. Pull latest of base; checkout `issue-<N>-<slug>` into worktree (a `qa` card: create it from the base).
 2. Read issue + PR + Builder's handoff.
 3. Build issue-scoped test plan: ONE observable test per AC.
@@ -673,7 +673,7 @@ This is non-optional. Reviewer re-runs this command; red → bounce back to QA.
 
 The Tester's issue comment is the user's primary visibility into "is this actually fixed." A bare directory path is not sufficient — the user wants to *see* the proof on the issue page.
 
-**The canonical template lives in `.claude/skills/super-board/references/run.md` → "Screenshot embed format" (right after Tester first pass).** Do not duplicate it here; both lanes (super-board Tester + standalone super-qa) follow that exact format. Summary of rules workers must obey:
+**The canonical template lives in `.zcode/skills/super-board/references/run.md` → "Screenshot embed format" (right after Tester first pass).** Do not duplicate it here; both lanes (super-board Tester + standalone super-qa) follow that exact format. Summary of rules workers must obey:
 
 - Capture screenshots at the standard viewports for UI ACs: **desktop 1920×1080, tablet 1024×768, mobile 375×667**.
 - Commit the screenshots to the issue branch and push *before* writing the comment — inline image URLs won't render unless the file is on GitHub.

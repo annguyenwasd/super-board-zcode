@@ -146,17 +146,14 @@ class Calibration(unittest.TestCase):
             self.assertEqual(self.prepare(receipt=note)['status'], 'skipped')
 
     def test_existing_lane_state_blocks_a_caller_claim_of_zero_workers(self):
-        lock = self.root / '.claude/super-board/inflight/1'
+        lock = self.root / '.zcode/super-board/inflight/1'
         lock.parent.mkdir(parents=True)
         lock.write_text('PID=123\n')
         self.assertEqual(self.prepare()['reason'], 'unfinished-work')
         lock.unlink()
-        marker = self.root / '.claude/super-board/codex-wave.pid'
-        marker.write_text('123\n')
-        self.assertEqual(self.prepare()['reason'], 'unfinished-work')
 
     def test_native_workflow_marker_blocks_calibration_until_completion_cleanup(self):
-        marker = self.root / '.claude/super-board/inflight/workflow-wave.lock'
+        marker = self.root / '.zcode/super-board/inflight/workflow-wave.lock'
         marker.parent.mkdir(parents=True)
         marker.write_text('SLUG=app\nSTARTED=now\n')
         self.assertEqual(self.prepare()['status'], 'skipped')

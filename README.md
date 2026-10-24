@@ -18,9 +18,6 @@
 
 </div>
 
-<p align="center"><a href="https://erictechpro.github.io/super-board/skill-map/"><img src="docs/assets/skill-map.png" alt="The super-board skill map: open the interactive version" width="100%"></a></p>
-<p align="center"><sub>The skill map. Click it for the live version: zoom, pan, open any node.</sub></p>
-
 ## Install
 
 This is the ZCode fork of super-board. Run this in your project folder:
@@ -30,9 +27,7 @@ curl -fsSL https://raw.githubusercontent.com/annguyenwasd/super-board-zcode/main
 ```
 
 > [!IMPORTANT]
-> There is no ZCode plugin and no `/plugin` command here. Do not run `/plugin marketplace add EricTechPro/super-board`; that installs the original Claude Code pack. This installer works as plain skills: it copies skills, scripts and workflows into `.agents/`, links them into `.zcode/` and `.claude/`, and writes the guard hooks into `.zcode/config.json`. Run state stays in `.claude/super-board/`. Needs ZCode, `gh`, `jq`, bash 3.2+ and Python 3.9+; the installer checks.
-
-Running Claude Code or Codex? Use the [original pack](https://github.com/EricTechPro/super-board). See [supported hosts](docs/hosts.md) for tested versions, sign-in and gaps.
+> There is no ZCode plugin and no `/plugin` command here. This installer works as plain skills: it copies skills and scripts into `.agents/`, links them into `.zcode/`, ships the `.dwf.ts` workflows into `.zcode/workflows/`, and writes the guard hooks into `.zcode/config.json`. Run state stays in `.zcode/super-board/`. Needs ZCode, `gh`, `jq`, bash 3.2+ and Python 3.9+; the installer checks. See [the host doc](docs/hosts.md) for the tested version and gaps.
 
 Optional post-run learning can delegate an already installed `calibrate` skill after
 verified selected work completes. It applies only to explicitly permitted existing
@@ -63,7 +58,7 @@ Checks · GitHub · Board · Branch · AGENTS.md · Policies · Bug sources · R
 
 Add cards to `Ready`. The board drains on its own.
 
-On ZCode this runs through the ported saved workflow `super-board-wave`, verified end to end on 2026-10-24: a real card went Ready → Building → QA → Review → Done with its PR merged through the merge gate. Every lane runs on the run's model; Claude's tier ladder does not apply. Status per host: [supported hosts](docs/hosts.md).
+On ZCode this runs through the ported saved workflow `super-board-wave`, verified end to end on 2026-10-24: a real card went Ready → Building → QA → Review → Done with its PR merged through the merge gate. Every lane runs on the run's model; there is no tier ladder. Host details: [the host doc](docs/hosts.md).
 
 ## How it works
 
@@ -110,7 +105,7 @@ Each name links to that skill's README. Adding a skill? Write its `SKILL.md` and
 /git-sync                     # commit, pull, push
 ```
 
-Flags: `run --low|--high` · `run --codex[=<model>]` · `super-collect --since 30d`
+Flags: `super-collect --since 30d`
 
 ## Guards & hooks
 
@@ -118,7 +113,7 @@ Run automatically once installed. Python stdlib, JSON in, JSON out.
 
 | | |
 | --- | --- |
-| [guard-worktree-path](hooks/guard-worktree-path.py) | Blocks `git worktree add` outside `.claude/worktrees/` |
+| [guard-worktree-path](hooks/guard-worktree-path.py) | Blocks `git worktree add` outside `.zcode/worktrees/` |
 | [guard-secrets](hooks/guard-secrets.py) | Blocks reading or piping dotenv files, SSH keys and credential files; key names via `super-board-env-check.sh` |
 | [guard-key-literals](hooks/guard-key-literals.py) | Blocks a live-looking API key written into a file; flags one already there |
 | [guard-delete-outside](hooks/guard-delete-outside.py) | Blocks `rm`, `find -delete` and `git clean` aimed outside the project, `~` or `/` |
@@ -129,26 +124,12 @@ Run automatically once installed. Python stdlib, JSON in, JSON out.
 
 ## Models
 
-A cheap router grades each card easy, medium or hard first; the run flag picks the model for each grade. With `--codex`, every lane runs on Codex GPT models instead of Claude.
-
-| Command | Router | Easy card | Medium card | Hard card |
-| --- | --- | --- | --- | --- |
-| `/super-board run` | Haiku 4.5 | Sonnet 5.5 | Opus 5.5 | session model |
-| `/super-board run --low` | Haiku 4.5 | Haiku 4.5 | Sonnet 5.5 | Opus 5.5 |
-| `/super-board run --high` | Sonnet 5.5 | Opus 5.5 | Opus 5.5 | Opus 5.5 |
-| `/super-board run --codex` | gpt-6-luna | gpt-6.1-sol | gpt-6.1-sol | gpt-6-astra |
-| `/super-board run --codex --low` | gpt-6-luna | gpt-6-luna | gpt-6.1-sol | gpt-6.1-sol |
-| `/super-board run --codex --high` | gpt-6-luna | gpt-6-astra | gpt-6-astra | gpt-6-astra |
-
-`/super-board run --codex=<model>` pins one model for every card and skips the router.
-
-Run inside Codex? plain `/super-board run` switches to the Codex ladder by itself. Codex has no
-`/super-board` command: it finds skills in `.agents/skills/` (symlinks followed), so link
-`.claude/skills/super-board` there and type `$super-board run`.
+Every lane agent runs on the session's model — there is no model ladder on ZCode.
+Pick the model by starting the ZCode session on it before `/super-board run`.
 
 ## Writing standard
 
-Commits, tickets, PR bodies and comments all follow [one writing standard](https://erictechpro.github.io/super-board/writing-standard/), in the pack and in every project it is installed into.
+Commits, tickets, PR bodies and comments all follow [one writing standard](skills/super-board/references/writing-standard.md), in the pack and in every project it is installed into.
 
 <details>
 <summary><strong>Upgrading from 2.x</strong></summary>
@@ -167,17 +148,6 @@ Fork of [EricTechPro/super-board](https://github.com/EricTechPro/super-board) by
 
 ---
 
-<p align="center">
-<a href="https://erictechpro.github.io/super-board/">Live site</a> ·
-<a href="https://erictechpro.github.io/super-board/skill-map/">Skill map</a> ·
-<a href="https://erictechpro.github.io/super-board/writing-standard/">Writing standard</a> ·
-<a href="https://erictechpro.github.io/super-board/onboarding/">Setup simulator</a> ·
-<a href="https://erictechpro.github.io/super-board/impeccable/">Impeccable map</a> ·
-<a href="https://erictechpro.github.io/super-board/pstack/">pstack map</a> ·
-<a href="RELEASE-NOTES.md">Release notes</a> ·
-<a href="RELEASING.md">Release checks</a> ·
-<a href="https://youtu.be/nX_bGyIOFM4">YouTube walkthrough</a>
-</p>
 
 ### Worker skill availability
 
@@ -192,7 +162,7 @@ repair rechecks files after installation.
 The CLI accepts `--home <fixture-home>` and `--catalog <active-skills.json>`.
 Launchers accept the same inventory through `SUPER_BOARD_SKILLS_HOME` and
 `SUPER_BOARD_SKILLS_CATALOG`; neither changes the actual host. Catalog shape:
-`{"host":"codex","skills":[{"name":"vendor:skill","path":"/exact/SKILL.md",
+`{"host":"zcode","skills":[{"name":"vendor:skill","path":"/exact/SKILL.md",
 "enabled":true,"scope":"project","project_root":"/exact/project"}]}`.
 User entries use `scope:"user"`. Restart explicitly after repairing missing
 skills; readiness certifies availability, not their content or external tools.

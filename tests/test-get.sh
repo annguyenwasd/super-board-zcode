@@ -29,7 +29,7 @@ printf '#!/bin/sh\nexit 0\n' > "$WORK/bin/jq"
 chmod +x "$WORK/bin/"*
 export PATH="$WORK/bin:$PATH"
 export NPX_LOG="$WORK/npx.log"
-export HOME="$WORK/home"; mkdir -p "$HOME"   # keep the real ~/.claude/skills out of the "already present" check
+export HOME="$WORK/home"; mkdir -p "$HOME"   # keep the real ~/.zcode/skills out of the "already present" check
 
 bash -n "$GET" || fail "get.sh has a syntax error"
 
@@ -37,11 +37,11 @@ bash -n "$GET" || fail "get.sh has a syntax error"
 T="$WORK/t1"; mkdir -p "$T"; : > "$NPX_LOG"
 out=$(bash "$GET" --target "$T" 2>&1) || fail "default install exited non-zero: $out"
 for s in super-board super-build super-qa super-review super-collect visual git-sync ui-refine-loop; do
-  [ -f "$T/.claude/skills/$s/SKILL.md" ] || fail "skill $s not installed"
+  [ -f "$T/.zcode/skills/$s/SKILL.md" ] || fail "skill $s not installed"
 done
-[ -x "$T/.claude/bin/super-board-run.sh" ] || fail "dispatcher script not installed"
-[ -f "$T/.claude/workflows/super-board-wave.js" ] || fail "workflow not installed"
-[ -f "$T/.claude/settings.json" ] || fail "hooks were not merged into settings.json"
+[ -x "$T/.zcode/bin/super-board-host.sh" ] || fail "host script not installed"
+[ -f "$T/.zcode/workflows/super-board-wave.dwf.ts" ] || fail "workflow not installed"
+[ -f "$T/.zcode/config.json" ] || fail "hooks were not merged into config.json"
 grep -q 'add mattpocock/skills' "$NPX_LOG" || fail "helper skills step not called (npx log: $(cat "$NPX_LOG"))"
 echo "$out" | grep -q '/super-board onboard' || fail "summary is missing the next step"
 n=$(printf '%s\n' "$out" | grep -c '/super-board onboard' || true)
@@ -50,14 +50,14 @@ n=$(printf '%s\n' "$out" | grep -c '/super-board onboard' || true)
 # 2 — flags pass through to install.sh, positional target works from piped stdin.
 T="$WORK/t2"; mkdir -p "$T"; : > "$NPX_LOG"
 bash -s -- --protect-main --no-helper-skills "$T" < "$GET" >/dev/null 2>&1 || fail "piped install with --protect-main failed"
-grep -q 'guard-protected-push' "$T/.claude/settings.json" || fail "--protect-main was not passed through to install.sh"
+grep -q 'guard-protected-push' "$T/.zcode/config.json" || fail "--protect-main was not passed through to install.sh"
 [ ! -s "$NPX_LOG" ] || fail "--no-helper-skills still called npx"
 
 # 3 — --no-hooks passes through: no settings.json, no hooks dir.
 T="$WORK/t3"; mkdir -p "$T"
 bash "$GET" --no-hooks --no-helper-skills --target "$T" >/dev/null 2>&1 || fail "--no-hooks install failed"
-[ ! -e "$T/.claude/settings.json" ] || fail "--no-hooks still wrote settings.json"
-[ -f "$T/.claude/skills/super-board/SKILL.md" ] || fail "--no-hooks install skipped the skills"
+[ ! -e "$T/.zcode/settings.json" ] || fail "--no-hooks still wrote settings.json"
+[ -f "$T/.zcode/skills/super-board/SKILL.md" ] || fail "--no-hooks install skipped the skills"
 
 # 4 — helper skills already present (lock file lists them): npx is not called.
 T="$WORK/t4"; mkdir -p "$T"; : > "$NPX_LOG"
@@ -93,15 +93,12 @@ fi
 
 # 8 — grouped output, in the spec's order: header · checks · download · installing ·
 #     helper skills · 🎉 · 👉. One line per group of files, no per-file list.
-#     Host env signs are stripped so the Claude-only baseline holds inside any host shell
-#     (a zcode/codex shell would also link that host and extend the hooks line).
-T="$WORK/t8"; mkdir -p "$T"; printf '# Rules\n- pnpm\n' > "$T/CLAUDE.md"; : > "$NPX_LOG"
-out=$(env -u CLAUDECODE -u CODEX_THREAD_ID -u CODEX_SESSION_ID -u OPENCODE -u ZCODE_APP_VERSION bash "$GET" --target "$T" 2>&1) || fail "grouped-output install failed: $out"
+T="$WORK/t8"; mkdir -p "$T"; : > "$NPX_LOG"
+out=$(bash "$GET" --target "$T" 2>&1) || fail "grouped-output install failed: $out"
 order=$(printf '%s\n' "$out" | grep -oE '^(🧩|🔍|📦|🔧|🧠|🎉|👉)' | tr -d '\n')
 [ "$order" = "🧩🔍📦🔧🧠🎉👉" ] || fail "groups out of order ($order): $out"
 printf '%s\n' "$out" | grep -q '^   ✓ curl · tar · python3 · gh · jq · node$' || fail "checks line wrong: $out"
-printf '%s\n' "$out" | grep -q '^   🛡️  6 guard hooks → .claude/settings.json (new file)$' || fail "guard line wrong: $out"
-printf '%s\n' "$out" | grep -q '^   ! CLAUDE.md holds its own rules — onboard offers a merge$' || fail "CLAUDE.md hint missing: $out"
+printf '%s\n' "$out" | grep -q '^   🛡️  6 guard hooks → .zcode/config.json (new file)$' || fail "guard line wrong: $out"
 printf '%s\n' "$out" | grep -q '^🧠 helper skills: installed$' || fail "helper line wrong: $out"
 [ "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" -le 12 ] || fail "output should stay ≤ 12 lines: $out"
 

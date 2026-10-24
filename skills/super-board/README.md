@@ -8,7 +8,6 @@ Drives a GitHub Project board on its own: drag a card into `Ready`, and it comes
 - **Runs each card through three lanes**: super-build (Building), super-qa (QA), super-review (Review). A failed lane bounces the card back with comments the next wave reads.
 - **Merges only through the merge gate**: a lock, the current base merged in, your `verify_commands`, then a squash-merge pinned to the reviewed commit.
 - **Holds no state of its own.** The board is the state, so Ctrl-C, restarts and rate-limit pauses lose nothing. Stranded `Building` cards return to `Ready`.
-- **Pauses near your Claude usage limit** when the usage check is recording (see the pack README).
 - **Never writes product code.** Your session is the orchestrator; lane agents do the work.
 
 ## When To Use It

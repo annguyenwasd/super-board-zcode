@@ -1,6 +1,6 @@
 # Worker rate-limit etiquette
 
-The dispatcher's `gh_rate_guard` only protects the dispatcher's own ticks. Workers (Builder / Tester / Reviewer) run as independent `claude -p` sessions and **share the same gh-auth token bucket** — 5000 GraphQL points/hr for a PAT, 15000/hr for a GitHub App. The #381 worker storm (2026-05-21) drained the bucket because nothing in the worker contract told workers to watch the quota.
+The orchestrator's rate guard only protects the orchestrator's own steps. Workers (Builder / Tester / Reviewer) run as independent lane agents and **share the same gh-auth token bucket** — 5000 GraphQL points/hr for a PAT, 15000/hr for a GitHub App. The #381 worker storm (2026-05-21) drained the bucket because nothing in the worker contract told workers to watch the quota.
 
 This file is the worker-side contract. Every worker MUST follow it.
 
@@ -24,7 +24,7 @@ wave spent ~2,850 of 5,000 points (~950 a card) and the board stalled an hour:
 
 The rules that follow from it:
 
-- **Cards go through `.claude/bin/super-board-card.sh`** — `move <issue> <Status>`,
+- **Cards go through `.zcode/bin/super-board-card.sh`** — `move <issue> <Status>`,
   `status <issue>`, `items`. It caches the project, Status field and option ids
   and each issue's item id, shared across worktrees. `gh project item-list`,
   `field-list` and `view` belong to onboarding.

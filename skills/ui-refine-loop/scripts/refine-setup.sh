@@ -10,7 +10,7 @@
 #
 #   refine-setup.sh up --slug <slug> [--config <path>]
 #       New worktree <root>/refine-<slug> on branch refine/<slug> from HEAD
-#       (root = $SUPER_REFINE_WT_ROOT or .claude/worktrees). Then node_modules, env files, dev server, readiness wait. Prints JSON:
+#       (root = $SUPER_REFINE_WT_ROOT or .zcode/worktrees). Then node_modules, env files, dev server, readiness wait. Prints JSON:
 #       {worktree, runDir, port, baseUrl, pid, base, nodeModules}. The base sha
 #       and the branch it came from land in <runDir>/base and <runDir>/base-branch.
 #
@@ -34,8 +34,8 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-if [ -z "$CONFIG" ] && [ -f .claude/super-board/active ]; then
-  CONFIG=".claude/super-board/configs/$(tr -d '[:space:]' < .claude/super-board/active).json"
+if [ -z "$CONFIG" ] && [ -f .zcode/super-board/active ]; then
+  CONFIG=".zcode/super-board/configs/$(tr -d '[:space:]' < .zcode/super-board/active).json"
 fi
 
 detect() {
@@ -104,14 +104,14 @@ const resolveImpeccable = (p) => {
   return null
 }
 
-// Look in .claude/skills and .agents/skills of this dir and every parent (a
+// Look in .zcode/skills and .agents/skills of this dir and every parent (a
 // project nested inside a bigger repo inherits its skills), then under ~.
 const candidates = []
 for (let d = process.cwd(); ; d = path.dirname(d)) {
-  candidates.push(path.join(d, '.claude/skills/impeccable'), path.join(d, '.agents/skills/impeccable'))
+  candidates.push(path.join(d, '.zcode/skills/impeccable'), path.join(d, '.agents/skills/impeccable'))
   if (path.dirname(d) === d) break
 }
-candidates.push(path.join(home, '.claude/skills/impeccable'), path.join(home, '.agents/skills/impeccable'))
+candidates.push(path.join(home, '.zcode/skills/impeccable'), path.join(home, '.agents/skills/impeccable'))
 
 let impeccable = null
 if (r.impeccable) {
@@ -119,7 +119,7 @@ if (r.impeccable) {
   if (!impeccable) warnings.push(`refine.impeccable = ${r.impeccable} is not an Impeccable install (no scripts/impeccable and no scripts/detect.mjs)`)
 }
 if (!impeccable) impeccable = candidates.map(resolveImpeccable).find(Boolean) || null
-if (!impeccable) warnings.push('Impeccable NOT FOUND: the loop will use the built-in rubric (references/rubric.md). Scores are not Impeccable scores. Install the impeccable skill under .claude/skills or .agents/skills, or set refine.impeccable.')
+if (!impeccable) warnings.push('Impeccable NOT FOUND: the loop will use the built-in rubric (references/rubric.md). Scores are not Impeccable scores. Install the impeccable skill under .zcode/skills or .agents/skills, or set refine.impeccable.')
 
 const tastePath = r.taste_file || 'docs/design/taste.md'
 
@@ -185,7 +185,7 @@ case "$cmd" in
     DEV=$(field devCommand <<<"$S"); READY=$(field readyPath <<<"$S")
     [ -n "$DEV" ] || die "no dev command: set refine.dev_command in the super-board config" 70
     [ -n "$SLUG" ] || die "up needs --slug" 64
-    ROOT="${SUPER_REFINE_WT_ROOT:-.claude/worktrees}"
+    ROOT="${SUPER_REFINE_WT_ROOT:-.zcode/worktrees}"
     mkdir -p "$ROOT"
     WT="$(cd "$ROOT" && pwd)/refine-$SLUG"; RUN="$WT.run"
     [ -e "$WT" ] && die "$WT already exists — finish or remove the previous run first" 70

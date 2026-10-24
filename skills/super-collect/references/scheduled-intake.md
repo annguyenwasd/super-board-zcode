@@ -25,7 +25,7 @@ Confirm the active config matches the intended repo/board, then test a dry run.
 > sources honestly. If reads or a write outcome are halted, preserve the reason
 > and stop; do not clear the halt or blindly retry create/comment.
 
-Adapt invocation to the host: Claude uses `/super-collect --yes`; Codex uses
+Invoke as `/super-collect --yes`; a plain shell uses
 `$super-collect --yes`. A local timer can start that host's normal agent runner
 with this prompt. A cloud job needs equivalent repo, tool, skill and credential
 access. No universal scheduler service is bundled.
@@ -34,7 +34,7 @@ access. No universal scheduler service is bundled.
 
 Collectors serialize by repository identity on one machine. They share an OS lock
 (flock on POSIX, msvcrt on Windows, where the filer runs as a `bash` child under a
-per-hold token) in project-local `.claude/super-board/collect/`, resolved through
+per-hold token) in project-local `.zcode/super-board/collect/`, resolved through
 the existing GitHub halt location across worktrees. `SB_COLLECT_STATE_DIR` can
 select another dedicated shared ignored directory. The helper creates a
 self-ignoring `.gitignore` there, including after an app install. Receipts contain
@@ -57,7 +57,7 @@ the saved halt and receipt, check the remote result, and resolve that specific
 pending fingerprint only after its outcome is known:
 
 ```bash
-python3 .claude/bin/super-board-collect-state.py --repo owner/repo \
+python3 .zcode/bin/super-board-collect-state.py --repo owner/repo \
   --action reconcile --fingerprint 'the-exact-pending-fingerprint'
 ```
 

@@ -178,79 +178,6 @@ def readable(path):
         return None
 
 
-def codex_disabled(config_path, root, home):
-    """Read only native skill activation records, without a Python 3.11 TOML dependency.
-
-    Accept the documented [[skills.config]] path/enabled form, including literal
-    strings and comments. Unsupported skill config fails closed for an explicit
-    authoritative catalog; unrelated model/provider settings are never returned.
-    """
-    if not config_path.exists():
-        return set(), False
-    records, current, section = [], None, ''
-    def uncomment(line):
-        quote, escaped = None, False
-        for index, char in enumerate(line):
-            if quote == '"' and escaped:
-                escaped = False
-                continue
-            if quote == '"' and char == '\\':
-                escaped = True
-            elif quote and char == quote:
-                quote = None
-            elif not quote and char in ('"', "'"):
-                quote = char
-            elif not quote and char == '#':
-                return line[:index].strip()
-        return line.strip()
-    for raw in config_path.read_text().splitlines():
-        line = uncomment(raw)
-        if not line:
-            continue
-        if line.startswith('['):
-            current = None
-            if line == '[[skills.config]]':
-                current = {}; records.append(current); section = 'skills.config'
-            else:
-                section = line.strip('[]').strip().replace(chr(34), '').replace(chr(39), '')
-                if 'skills' in section and 'config' in section:
-                    raise ValueError('unsupported Codex skills configuration; supply an authoritative --catalog')
-            continue
-        if current is not None:
-            match = re.fullmatch(r'(path|enabled)\s*=\s*(.+)', line)
-            if not match or match[1] in current:
-                raise ValueError('unsupported Codex skill record; supply an authoritative --catalog')
-            key, value = match.groups()
-            if key == 'enabled':
-                if value not in ('true', 'false'):
-                    raise ValueError('invalid Codex skill enabled value')
-                current[key] = value == 'true'
-            else:
-                try:
-                    if re.fullmatch(r"'[^']*'", value):
-                        value = value[1:-1]
-                    else:
-                        value = json.loads(value)
-                except ValueError:
-                    raise ValueError('unsupported Codex skill path string; supply an authoritative --catalog')
-                if not isinstance(value, str):
-                    raise ValueError('Codex skill path must be a string')
-                if value.startswith('~/'):
-                    value = str(home / value[2:])
-                if not Path(value).is_absolute():
-                    raise ValueError('Codex skill path must be absolute')
-                current[key] = str(Path(value).resolve())
-        elif (section == 'skills' and re.match(r'''(?:config|["']config["'])\s*(?:=|\.)''', line)) or re.match(r'''(?:skills|["']skills["'])\s*\.\s*(?:config|["']config["'])\s*(?:=|\.)''', line) or (not section and re.match(r'''(?:skills|["']skills["'])\s*=''', line)):
-            raise ValueError('unsupported Codex inline skills configuration; supply an authoritative --catalog')
-    disabled = set()
-    for record in records:
-        if 'path' not in record:
-            raise ValueError('Codex skill record needs path')
-        if record.get('enabled', True) is False:
-            disabled.add(record['path'])
-    return disabled, bool(records)
-
-
 class Inventory:
     def __init__(self, root, host, home=None, catalog=None):
         self.root, self.host = Path(root).resolve(), host
@@ -260,48 +187,18 @@ class Inventory:
         self.project_exact = {}
         self.metadata_surfaces = []
         self.disabled = set()
-        self.catalog_only = False
-        if host == 'claude':
-            self.roots = [self.root / '.claude/skills', self.home / '.claude/skills']
-            self.claude_plugins()
-        else:
-            # Codex discovery stops at this independent repository's root.
-            process = subprocess.run(['git', '-C', str(self.root), 'rev-parse', '--show-toplevel'],
-                                     text=True, capture_output=True)
-            boundary = Path(process.stdout.strip()).resolve() if process.returncode == 0 else self.root
-            scoped = [self.root]
-            if boundary in self.root.parents:
-                for parent in self.root.parents:
-                    scoped.append(parent)
-                    if parent == boundary:
-                        break
-            self.roots = [parent / '.agents/skills' for parent in scoped]
-            if host == 'zcode':
-                self.roots += [self.root / '.zcode/skills', self.home / '.zcode/skills']
-            codex_home = (self.home / '.codex') if home else Path(os.environ.get('CODEX_HOME', self.home / '.codex'))
-            self.roots += [self.home / '.agents/skills', codex_home / 'skills']
-            try:
-                self.disabled.update(codex_disabled(codex_home / 'config.toml', self.root, self.home)[0])
-            except ValueError:
-                if not catalog:
-                    raise
-                # Unknown native activation semantics need a complete active inventory.
-                self.roots = []
-                self.catalog_only = True
-            # Project configuration is trust-sensitive and layered. A displayed
-            # active catalog is the authority when any scoped project config
-            # affects skill activation; do not invent trust/precedence rules.
-            for parent in reversed(scoped):
-                try:
-                    _, activates = codex_disabled(parent / '.codex/config.toml', self.root, self.home)
-                except ValueError:
-                    activates = True
-                if activates:
-                    if not catalog:
-                        raise ValueError('project Codex skill activation needs an authoritative --catalog for effective trusted settings')
-                    self.roots = []
-                    self.disabled.clear()
-                    self.catalog_only = True
+        # ZCode discovery walks the repo's parent scopes up to this repository's root.
+        process = subprocess.run(['git', '-C', str(self.root), 'rev-parse', '--show-toplevel'],
+                                 text=True, capture_output=True)
+        boundary = Path(process.stdout.strip()).resolve() if process.returncode == 0 else self.root
+        scoped = [self.root]
+        if boundary in self.root.parents:
+            for parent in self.root.parents:
+                scoped.append(parent)
+                if parent == boundary:
+                    break
+        self.roots = [parent / '.agents/skills' for parent in scoped]
+        self.roots += [self.root / '.zcode/skills', self.home / '.zcode/skills']
         if catalog:
             data = json.loads(Path(catalog).read_text())
             if not isinstance(data, dict) or data.get('host') != host or not isinstance(data.get('skills'), list):
@@ -324,52 +221,6 @@ class Inventory:
                 else:
                     self.disabled.add(str(Path(entry['path']).resolve()))
 
-    def claude_plugins(self):
-        settings = {}
-        for path in [self.home / '.claude/settings.json', self.root / '.claude/settings.json', self.root / '.claude/settings.local.json']:
-            if path.exists():
-                data = json.loads(path.read_text())
-                if not isinstance(data, dict):
-                    raise ValueError('unsupported Claude settings: expected an object')
-                enabled = data.get('enabledPlugins', {})
-                if not isinstance(enabled, dict) or not all(type(value) is bool for value in enabled.values()):
-                    raise ValueError('unsupported Claude enabledPlugins settings: expected boolean values')
-                settings.update(enabled)
-        manifest = self.home / '.claude/plugins/installed_plugins.json'
-        if not manifest.exists():
-            return
-        data = json.loads(manifest.read_text())
-        if not isinstance(data, dict):
-            raise ValueError('unsupported Claude installed plugin metadata: expected an object')
-        plugins = data.get('plugins')
-        if not isinstance(plugins, dict):
-            raise ValueError('unsupported Claude installed plugin metadata; provide an authoritative --catalog')
-        for key, installs in plugins.items():
-            if settings.get(key) is not True:
-                continue
-            if not isinstance(installs, list):
-                raise ValueError('unsupported Claude plugin install records')
-            namespace = key.split('@', 1)[0]
-            valid_name(namespace)
-            if not all(isinstance(item, dict) for item in installs):
-                raise ValueError('invalid Claude plugin install record')
-            for item in sorted(installs, key=lambda item: ({'local': 0, 'project': 1, 'user': 2}.get(item.get('scope'), 3), str(item.get('installPath', '')))):
-                scope = item.get('scope')
-                if scope not in ['user', 'project', 'local']:
-                    raise ValueError('unsupported Claude plugin scope')
-                if scope != 'user' and Path(item.get('projectPath', '')).resolve() != self.root:
-                    continue
-                path = item.get('installPath')
-                if not isinstance(path, str) or not Path(path).is_absolute():
-                    raise ValueError('enabled Claude plugin has no authoritative installPath')
-                directory = Path(path) / 'skills'
-                self.metadata_surfaces.append(str(directory))
-                if directory.is_dir():
-                    for child in sorted(directory.iterdir()):
-                        if NAME.fullmatch(child.name):
-                            target = self.exact if scope == 'user' else self.project_exact
-                            target.setdefault(namespace + ':' + child.name, []).append(child / 'SKILL.md')
-
     def resolve(self, name):
         namespace, separator, suffix = name.partition(':')
         known = separator and suffix in REGISTRY['aliases'].get(namespace, [])
@@ -379,9 +230,6 @@ class Inventory:
             candidates[1:1] = self.project_exact.get(name, [])
         else:
             candidates = list(self.project_exact.get(name, []))
-        # Core direct reads are part of the Codex launcher contract, helpers are not.
-        if self.host == 'codex' and name in CORE and not self.catalog_only:
-            candidates.insert(0, self.root / '.claude/skills' / name / 'SKILL.md')
         candidates += self.exact.get(name, [])
         for path in candidates:
             resolved = readable(path)
@@ -456,7 +304,7 @@ class UsageParser(argparse.ArgumentParser):
 def main(argv=None):
     parser = UsageParser(description=__doc__)
     parser.add_argument('--root', required=True)
-    parser.add_argument('--host', required=True, choices=['claude', 'codex', 'zcode'])
+    parser.add_argument('--host', required=True, choices=['zcode'])
     selection = parser.add_mutually_exclusive_group(required=True)
     selection.add_argument('--cards')
     selection.add_argument('--profile', choices=['setup'])

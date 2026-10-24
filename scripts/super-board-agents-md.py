@@ -1,23 +1,20 @@
 #!/usr/bin/env python3
 """super-board-agents-md.py — the deterministic half of the AGENTS.md step.
 
-super-board onboard makes AGENTS.md the single source of truth for coding agents
-and CLAUDE.md a one-line `@AGENTS.md` pointer. The semantic merge (which rules
-are duplicates, which conflict, how to word them) is the agent's job, with the
-rules in references/onboard.md → "AGENTS.md source of truth". Everything that
-must be exact lives here: detection, backup, the managed block, atomic writes,
-the lossless-coverage check and the size check. Stdlib only.
+super-board onboard makes AGENTS.md the single source of truth for coding agents.
+The semantic merge (which rules are duplicates, which conflict, how to word them)
+is the agent's job, with the rules in references/onboard.md → "AGENTS.md source
+of truth". Everything that must be exact lives here: detection, backup, the
+managed block, atomic writes, the lossless-coverage check and the size check.
+Stdlib only.
 
-    detect   [--root .]                         JSON: what exists, pointer or not, block or not
+    detect   [--root .]                         JSON: what instruction files exist, block or not
     backup   [--root .]                         copy every instruction file to
-                                                .claude/super-board/backup/<ts>/; print the dir
+                                                .zcode/super-board/backup/<ts>/; print the dir
     block    [--root .] [--file AGENTS.md] [--template T] [--version V] [--create]
                                                 write the super-board block between the markers;
                                                 nothing outside them changes. Prints
                                                 created | inserted | updated | unchanged
-    pointer  [--root .] [--tail FILE] [--force] CLAUDE.md := "@AGENTS.md" (+ Claude-only tail).
-                                                Refuses to replace a non-pointer CLAUDE.md
-                                                without --force (use after backup + approval)
     write    --src S --dest D                   atomic copy (temp file, fsync, rename)
     units    --file F [--file F2 ...]           JSON list of rule units: {id, file, heading, text}
     coverage --units U.json --target F [--target F2]
@@ -43,13 +40,13 @@ import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-# Same relative layout in the pack (scripts/ + skills/) and installed (.claude/bin + .claude/skills).
+# Same relative layout in the pack (scripts/ + skills/) and installed (.zcode/bin + .zcode/skills).
 DEFAULT_TEMPLATE = HERE.parent / "skills" / "super-board" / "references" / "agents-md-block.md"
 DEFAULT_VERSION_FILE = HERE.parent / "skills" / "super-board" / "VERSION"
 BEGIN_RE = re.compile(r"^<!-- super-board:begin\b.*-->\s*$")
 END_RE = re.compile(r"^<!-- super-board:end -->\s*$")
-INSTRUCTION_FILES = ["AGENTS.md", "CLAUDE.md", ".claude/CLAUDE.md", "CLAUDE.local.md",
-                     "GEMINI.md", ".cursorrules", ".github/copilot-instructions.md"]
+INSTRUCTION_FILES = ["AGENTS.md", "GEMINI.md", ".cursorrules",
+                     ".github/copilot-instructions.md"]
 POINTER = "@AGENTS.md"
 
 
@@ -87,22 +84,9 @@ def markers(lines: list[str]) -> list[tuple[int, int]]:
     return pairs
 
 
-def is_pointer(text: str) -> bool:
-    first = next((l.strip() for l in text.splitlines() if l.strip()), "")
-    return first == POINTER
-
-
-def pointer_tail(text: str) -> str:
-    lines = text.splitlines()
-    for i, l in enumerate(lines):
-        if l.strip():
-            return "\n".join(lines[i + 1:]).strip("\n")
-    return ""
-
-
 def cmd_detect(a) -> int:
     root = Path(a.root)
-    out = {"files": {}, "agents": None, "claude": None}
+    out = {"files": {}, "agents": None}
     for rel in INSTRUCTION_FILES:
         p = root / rel
         if p.is_file():
@@ -113,21 +97,13 @@ def cmd_detect(a) -> int:
         pairs = markers(text.splitlines())
         out["agents"] = {"has_block": bool(pairs), "blocks": len(pairs),
                          "lines": len(text.splitlines())}
-    if (root / "CLAUDE.md").is_file():
-        text = (root / "CLAUDE.md").read_text(encoding="utf-8", errors="replace")
-        out["claude"] = {"is_pointer": is_pointer(text),
-                         "imports": re.findall(r"^@(\S+)", text, re.M),
-                         "tail_lines": len(pointer_tail(text).splitlines()) if is_pointer(text) else None}
-    # The one question onboard re-asks on every re-install: is there a CLAUDE.md
-    # holding rules of its own that AGENTS.md does not?
-    out["offer_merge"] = bool(out["claude"] and not out["claude"]["is_pointer"])
     print(json.dumps(out, indent=2))
     return 0
 
 
 def cmd_backup(a) -> int:
     root = Path(a.root)
-    dest = root / ".claude" / "super-board" / "backup" / time.strftime("%Y%m%d-%H%M%S")
+    dest = root / ".zcode" / "super-board" / "backup" / time.strftime("%Y%m%d-%H%M%S")
     n = 0
     for rel in INSTRUCTION_FILES:
         p = root / rel
@@ -182,22 +158,6 @@ def cmd_block(a) -> int:
         return 0
     atomic_write(path, new_text)
     print(verdict)
-    return 0
-
-
-def cmd_pointer(a) -> int:
-    path = Path(a.root) / "CLAUDE.md"
-    tail = Path(a.tail).read_text(encoding="utf-8").strip("\n") if a.tail else ""
-    if path.exists():
-        current = path.read_text(encoding="utf-8")
-        if not is_pointer(current) and not a.force:
-            die("CLAUDE.md holds its own rules; merge them into AGENTS.md, back up, then pass --force")
-    text = POINTER + "\n" + (f"\n{tail}\n" if tail else "")
-    if path.exists() and path.read_text(encoding="utf-8") == text:
-        print("unchanged")
-        return 0
-    atomic_write(path, text)
-    print("written")
     return 0
 
 
@@ -327,8 +287,6 @@ def main() -> int:
     p = sub.add_parser("block")
     p.add_argument("--root", default="."); p.add_argument("--file", default="AGENTS.md")
     p.add_argument("--template"); p.add_argument("--version"); p.add_argument("--create", action="store_true")
-    p = sub.add_parser("pointer")
-    p.add_argument("--root", default="."); p.add_argument("--tail"); p.add_argument("--force", action="store_true")
     p = sub.add_parser("write"); p.add_argument("--src", required=True); p.add_argument("--dest", required=True)
     p = sub.add_parser("units"); p.add_argument("--file", action="append", required=True)
     p = sub.add_parser("coverage")

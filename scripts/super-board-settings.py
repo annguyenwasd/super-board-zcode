@@ -1,19 +1,17 @@
 #!/usr/bin/env python3
-"""super-board-settings.py — merge into .claude/settings.json without losing anything.
+"""super-board-settings.py — merge into .zcode/config.json without losing anything.
 
-    super-board-settings.py hooks <settings.json> <snippet.json> [...] [--dry-run]
     super-board-settings.py zcode-hooks <.zcode/config.json> <snippet.json> [...] [--dry-run]
-    super-board-settings.py allow <settings.json> <rule> [<rule> ...]  [--dry-run]
 
-`hooks` adds each hook command from the snippets once per event + matcher
-(install.sh and onboard's protect-main step). `zcode-hooks` merges the same
-snippets into a ZCode workspace config: ZCode wraps them one level deeper
+`zcode-hooks` adds each hook command from the snippets once per event + matcher
+(install.sh and onboard's protect-main step) into a ZCode workspace config:
+ZCode wraps them one level deeper
 (`hooks.events.<Event>`) and runs config-file hooks only when `hooks.enabled`
 is true, so that flag is set whenever new hook commands were added (an existing
 `enabled: false` survives a no-op re-run). `allow` adds permission rules to
 `permissions.allow` once each (onboard's Permissions step, after the user
 approved the printed diff). All keep every existing key, back the file up
-(`settings.json.bak-<ts>` or `config.json.bak-<ts>`) before writing, write
+(`config.json.bak-<ts>`) before writing, write
 atomically, and leave an invalid JSON file untouched. `--dry-run` prints what
 would be added (`+ <line>`) and writes nothing.
 
@@ -78,40 +76,19 @@ def merge_events(events: dict, snippets: list[dict]) -> list[str]:
     return added
 
 
-def merge_hooks(settings: dict, snippets: list[dict]) -> list[str]:
-    return merge_events(settings.setdefault("hooks", {}), snippets)
-
-
-def merge_allow(settings: dict, rules: list[str]) -> list[str]:
-    allow = settings.setdefault("permissions", {}).setdefault("allow", [])
-    added = []
-    for r in rules:
-        if r not in allow:
-            allow.append(r)
-            added.append(r)
-    return added
-
-
 def main(argv: list[str]) -> int:
     dry = "--dry-run" in argv
     args = [a for a in argv if a != "--dry-run"]
-    if len(args) < 3 or args[0] not in ("hooks", "zcode-hooks", "allow"):
+    if len(args) < 3 or args[0] != "zcode-hooks":
         print(__doc__, file=sys.stderr)
         return 64
     verb, path, rest = args[0], args[1], args[2:]
     settings = load(path)
-    if verb == "hooks":
-        added = merge_hooks(settings, [json.load(open(p)) for p in rest])
-        noun = "hook command(s)"
-    elif verb == "zcode-hooks":
-        events = settings.setdefault("hooks", {}).setdefault("events", {})
-        added = merge_events(events, [json.load(open(p)) for p in rest])
-        if added:
-            settings["hooks"]["enabled"] = True
-        noun = "zcode hook command(s)"
-    else:
-        added = merge_allow(settings, rest)
-        noun = "permission rule(s)"
+    events = settings.setdefault("hooks", {}).setdefault("events", {})
+    added = merge_events(events, [json.load(open(p)) for p in rest])
+    if added:
+        settings["hooks"]["enabled"] = True
+    noun = "zcode hook command(s)"
     if not added:
         print("    ✓ already present — nothing to change")
         return 0

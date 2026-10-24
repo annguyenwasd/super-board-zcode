@@ -46,7 +46,7 @@ Never silently snapshot a dirty checkout or mutate the original checkout.
   "data_id": "fixed-search-fixture-v1",
   "environment_id": "local-chromium-same-build-mode",
   "scenario_files": ["search.mjs", "seed.json"],
-  "scenario_command": ["node", "../../.claude/skills/super-qa/scripts/runtime_browser.mjs", "search.mjs"],
+  "scenario_command": ["node", "../../.zcode/skills/super-qa/scripts/runtime_browser.mjs", "search.mjs"],
   "environment": {"SB_RUNTIME_PROJECT": "../.."},
   "repetitions": 5,
   "warmups": 1,
@@ -110,7 +110,7 @@ an inconclusive report. Custom adapters must not daemonize into detached session
 ## QA and Review handoff
 
 ```bash
-python3 .claude/skills/super-qa/scripts/runtime_compare.py \
+python3 .zcode/skills/super-qa/scripts/runtime_compare.py \
   --config docs/runtime/search.json --output docs/super-board/runs/issue-N-qa-v1/runtime
 ```
 

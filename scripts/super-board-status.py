@@ -2,7 +2,7 @@
 """super-board-status.py — read-only live snapshot of the super-board pipeline.
 
 Renders the richer status template defined in
-`.claude/skills/super-board/references/status.md` (fixed 80-col Kanban
+`.zcode/skills/super-board/references/status.md` (fixed 80-col Kanban
 plus dedicated Workers / Block-reasons / Recent / Health sections).
 
 The same template can be hand-rendered by the model — but the token-by-
@@ -11,7 +11,7 @@ view impractical in practice. This script renders it in ≈1.3 s by doing
 the layout as a single Python pass.
 
 What it does:
-  1. Resolve config slug: arg | `.claude/super-board/active` | sole config.
+  1. Resolve config slug: arg | `.zcode/super-board/active` | sole config.
   2. ONE GraphQL call for project items (number, title, labels, Status).
   3. ONE `gh issue view` per Blocked card for reason-tag extraction.
   4. Read today's manifest and pipe everything to the locked-template
@@ -27,7 +27,7 @@ Cross-platform: pure Python 3 stdlib + `gh` CLI. Works on macOS, Linux,
 Windows (PowerShell / CMD / Git Bash / WSL). No bash, no jq.
 
 Usage:
-  python .claude/bin/super-board-status.py [<config-slug>]
+  python .zcode/bin/super-board-status.py [<config-slug>]
 
 Exit codes:
   0  ok
@@ -328,7 +328,7 @@ _SLUG_RE = re.compile(r"\A[A-Za-z0-9._-]+\Z")
 def valid_slug(slug: str) -> bool:
     # `.` and `..` are pure-dot literals that pass the regex's char class but
     # are path-traversal sentinels — reject them explicitly. (`Path(.json)`
-    # would land at `.claude/super-board/configs/.json` which still wouldn't
+    # would land at `.zcode/super-board/configs/.json` which still wouldn't
     # escape the configs dir, but the manifest path uses the same slug too
     # and `..` there does escape.)
     if slug in (".", ".."):
@@ -339,13 +339,13 @@ def valid_slug(slug: str) -> bool:
 def resolve_config_slug(argv: list[str]) -> str:
     if len(argv) > 1 and argv[1]:
         return argv[1]
-    active = Path(".claude/super-board/active")
+    active = Path(".zcode/super-board/active")
     if active.is_file():
         return active.read_text().strip()
-    cfgs = sorted(Path(".claude/super-board/configs").glob("*.json"))
+    cfgs = sorted(Path(".zcode/super-board/configs").glob("*.json"))
     if len(cfgs) == 1:
         return cfgs[0].stem
-    print(f"usage: {argv[0]} <config-slug>  (or set .claude/super-board/active)", file=sys.stderr)
+    print(f"usage: {argv[0]} <config-slug>  (or set .zcode/super-board/active)", file=sys.stderr)
     sys.exit(64)
 
 
@@ -503,7 +503,7 @@ def main() -> int:
             file=sys.stderr,
         )
         return 64
-    config_path = Path(f".claude/super-board/configs/{config_slug}.json")
+    config_path = Path(f".zcode/super-board/configs/{config_slug}.json")
     if not config_path.is_file():
         print(f"config not found: {config_path}", file=sys.stderr)
         return 66

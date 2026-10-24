@@ -103,8 +103,8 @@ class Common(unittest.TestCase):
             self.assertEqual(cc.secret("MISSING"), "")
 
     def test_active_config_follows_pointer(self):
-        files = {".claude/super-board/active": "app\n",
-                 ".claude/super-board/configs/app.json": json.dumps({"collect": {"window_days": 30}})}
+        files = {".zcode/super-board/active": "app\n",
+                 ".zcode/super-board/configs/app.json": json.dumps({"collect": {"window_days": 30}})}
         with in_dir(files):
             cfg, path = cc.active_config()
             self.assertEqual(cc.window_days(cfg), 30)

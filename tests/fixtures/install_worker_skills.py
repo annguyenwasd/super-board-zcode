@@ -5,7 +5,7 @@ import sys
 NAMES = ['super-board','super-build','super-qa','super-review','super-collect','visual','git-sync','ui-refine-loop',
          'tdd','implement','codebase-design','code-review','diagnosing-bugs','verification-before-completion','testing-strategy']
 for root in sys.argv[1:]:
-    for surface in ['.agents/skills', '.claude/skills']:
+    for surface in ['.agents/skills', '.zcode/skills']:
         for name in NAMES:
             path = Path(root) / surface / name / 'SKILL.md'
             path.parent.mkdir(parents=True, exist_ok=True)

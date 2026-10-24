@@ -35,8 +35,8 @@ helper_skills_present() {
   if [ -f "$t/skills-lock.json" ] && grep -q 'mattpocock/skills' "$t/skills-lock.json" 2>/dev/null; then
     return 0
   fi
-  for d in "$t/.zcode/skills" "$t/.claude/skills" \
-           "${HOME:-/nonexistent}/.zcode/skills" "${HOME:-/nonexistent}/.claude/skills"; do
+  for d in "$t/.zcode/skills" \
+           "${HOME:-/nonexistent}/.zcode/skills"; do
     if [ -f "$d/grilling/SKILL.md" ] && [ -f "$d/tdd/SKILL.md" ]; then return 0; fi
   done
   return 1

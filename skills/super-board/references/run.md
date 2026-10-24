@@ -1,12 +1,10 @@
 # super-board run — full contract
 
-**Scope:** the lane lifecycles (Builder, Tester, Reviewer) that both backends use, and the legacy `claude-p` runner (`worker_backend: "claude-p"`). The default in-session wave loop is in `run-workflow.md`.
-
-**Where the legacy runner runs:** headless. Spawned as a `nohup`-backgrounded process; the current Claude session exits immediately after dispatch. The runner script (`scripts/super-board-run.sh`) is a pure shell while-loop that dispatches one `claude -p` worker per lane and never holds Claude session state. Each `claude -p` worker is its own short-lived headless context — load this file at the start of every lane.
+**Scope:** the lane lifecycles (Builder, Tester, Reviewer) that the in-session wave loop dispatches. The wave loop itself is in `run-workflow.md`; load this file at the start of every lane.
 
 ## Required GitHub reads can pause a run
 
-Use `.claude/bin/super-board-github-read.py` for required API evidence. It retries
+Use `.zcode/bin/super-board-github-read.py` for required API evidence. It retries
 one failed read at most twice (three total attempts); invalid queries or missing
 authority halt immediately. Exit **79** means stop dispatch and pause the current
 run. Never substitute an empty board, OPEN issue, full quota, or empty diff.
@@ -19,23 +17,21 @@ checkpoint limitations: [run-workflow.md](run-workflow.md#required-github-eviden
 
 ## Orchestrator delegation contract (NON-NEGOTIABLE)
 
-**Super-board is an autonomous trader. The interactive Claude session that invokes `super-board run` is an orchestrator, NOT a worker.** Its only jobs are:
+**Super-board is an autonomous trader. The interactive ZCode session that invokes `super-board run` is an orchestrator, NOT a worker.** Its only jobs are:
 
 1. Verify preconditions (see table below).
-2. Spawn the headless `nohup ./scripts/super-board-run.sh <slug> &` runner.
-3. Report runner PID + log path back to the user.
-4. Exit.
+2. Launch the wave loop per `run-workflow.md`, reconcile each wave, report.
 
 The orchestrator MUST NOT:
 
-- Build, test, review, or fix issues itself. All product work is delegated to `claude -p` workers via `dispatch_lane`.
+- Build, test, review, or fix issues itself. All product work is delegated to workflow lane agents.
 - Patch the dispatcher script or skill files unless the user explicitly asked for that change. Drift fixes belong in a follow-up issue, not a side-edit during a run dispatch.
 - Wait for workers to finish. Workers run in their own contexts and write evidence back to the issue + PR. The orchestrator's output to the user is the dispatch confirmation, not the run result.
 - Hold context for multi-card progress. Workers own the state machine via the GitHub Project board + assignee mutex + inflight lock files.
 
 If a problem surfaces during the run (bug in the dispatcher, missing skill, stuck card), the orchestrator should: (a) capture the symptom, (b) tell the user what they observed, (c) wait for explicit approval before touching anything. **Do not silently expand the task into "fix the dispatcher while you're at it" — that's the orchestrator becoming a worker.**
 
-When the user asks for diagnostics or a fix, prefer dispatching a focused `claude -p` worker (or named subagent) over doing the work in the orchestrator session, so the orchestrator's context stays small and the work stays inspectable in its own log.
+When the user asks for diagnostics or a fix, prefer dispatching a focused lane agent over doing the work in the orchestrator session, so the orchestrator's context stays small and the work stays inspectable in its own log.
 
 ## Intro shown when run starts
 
@@ -60,17 +56,16 @@ bounded receipt and delegate the external skill after normal final reconciliatio
 
 | Check | Action on fail |
 |---|---|
-| Usable verification commands | Run `python3 .claude/bin/super-board-verification-ready.py --config <config>`. Exit 9 halts setup before dispatch: configure the owning project's checks, then restart explicitly. |
+| Usable verification commands | Run `python3 .zcode/bin/super-board-verification-ready.py --config <config>`. Exit 9 halts setup before dispatch: configure the owning project's checks, then restart explicitly. |
 | Active config exists | Halt: "Run `super-board onboard` first." |
 | Project + required columns exist | Halt: "Project / columns missing. Run `super-board onboard` to repair." |
 | `gh auth` valid with required scopes | Halt: "Re-auth: `gh auth refresh -s project,read:project,repo`." |
 | `pre-flight.md` all items `[✓]` | Halt: "Pre-flight incomplete — fix these: [list]." |
 | No issues missing ACs in active columns | Halt: "N issues need clarification. Run `super-board lint`." |
 | Clean git working tree on base branch | Halt: "Working tree dirty. Stash or commit before running." |
-| Legacy worktrees | If `.worktrees/issue-*` exists, halt before dispatch. Stop its worker, inspect/preserve edits, then `git worktree move` it to the matching `.claude/worktrees/` path. Never delete it as part of an upgrade. |
-| Stale worktree scan | Scan only `.claude/worktrees/issue-<N>` and `issue-<N>-build/qa/review`. If its named branch is gone, use `git worktree remove` without force. Keep detached, dirty, locked, unregistered, or unrelated folders; log failures for inspection. A missing board label alone is not permission to delete work. |
+| Legacy worktrees | If `.worktrees/issue-*` exists, halt before dispatch. Stop its worker, inspect/preserve edits, then `git worktree move` it to the matching `.zcode/worktrees/` path. Never delete it as part of an upgrade. |
+| Stale worktree scan | Scan only `.zcode/worktrees/issue-<N>` and `issue-<N>-build/qa/review`. If its named branch is gone, use `git worktree remove` without force. Keep detached, dirty, locked, unregistered, or unrelated folders; log failures for inspection. A missing board label alone is not permission to delete work. |
 | Production-merge guard | If `base_branch == "main"` AND `human_approves_merge == false` AND `merge_policy.default != "human"` AND `merge_policy.allow_auto_on_production != true` AND production-detection signals fire (see onboard → base branch), halt with: `🛡 Refusing to start: would auto-merge to production main. Set merge_policy.default: "human", switch base_branch to staging, or re-run super-board onboard to opt in explicitly.` |
-| Orphan-worker scan (added 2026-05-22 after #381 worker storm) | `pgrep -f 'claude -p .*super-board run'` must return zero. If any super-board worker is already alive from a prior crashed run, halt with: `🛑 ${N} super-board workers already running. Stop them first: pkill -f 'claude -p .*super-board run'`. The dispatcher must never run while orphan workers exist — they will collide on assignee claims and produce duplicate PRs. |
 | Database reach | Run every `migrations.checks[env]` for an env in `allowed_envs` (read-only, e.g. `supabase migration list --db-url …`). On failure halt with its error: "Migrate URL for <env> does not connect — fix it before a wave builds work the gate cannot land." |
 | GraphQL rate-limit guard | Before each tick, `sb_gh_guard_check` (super-board-gh-guard.sh — it reads GraphQL's own `rateLimit`, because `gh api rate_limit` misreports the GraphQL bucket). If GraphQL remaining < 200, sleep until reset. Prevents the runner from dying mid-loop when the user has burned quota in another tool. |
 
@@ -93,17 +88,17 @@ reads the label of the top Ready card the same way (`card_lane`).
 ```
 Builder:   Ready → Building → QA
            worker   = super-build skill
-           worktree = .claude/worktrees/issue-<N>-build/
+           worktree = .zcode/worktrees/issue-<N>-build/
            branch   = issue-<N>-<slug>  (created here, persists across lanes)
 
 Tester:    QA → Review            (a `qa` card: Ready → QA → Review)
            worker   = super-qa skill (issue-scoped mode)
-           worktree = .claude/worktrees/issue-<N>-qa/
+           worktree = .zcode/worktrees/issue-<N>-qa/
            branch   = same issue-<N>-<slug>  (a `qa` card: the Tester creates it)
 
 Reviewer:  Review → Done
            worker   = super-review skill
-           worktree = .claude/worktrees/issue-<N>-review/
+           worktree = .zcode/worktrees/issue-<N>-review/
            branch   = same issue-<N>-<slug>  (squash-merged on approval)
 ```
 
@@ -118,7 +113,7 @@ A live site with no repo is not a board. `/super-qa <url>` tests it on its own.
 
 ## Dispatch allocation model — one worker per lane, not per backlog
 
-`super-board run` allocates headless Claude capacity by **lane**, not by how many cards are stacked in one column.
+`super-board run` allocates capacity by **lane**, not by how many cards are stacked in one column.
 
 - **Max concurrency:** 3 workers total — at most one Builder, one Tester, and one Reviewer at the same time.
 - **Never dispatch multiple workers from the same column just because that column has a backlog.** If all cards are in `Ready`, the runner dispatches exactly one worker for the top card — a Builder, or a Tester when the card is labelled `qa` — until it exits.
@@ -145,7 +140,7 @@ There is **exactly one branch per issue** and **exactly one PR per issue**. All 
 
 Format: `writing-standard.md` § 2. Title = the commit subject format
 (`✨ [feat] chat: stream replies`). The body is marker blocks; each lane rewrites only its own
-with `.claude/bin/super-board-pr-body.sh --pr <P> --block <name> --expect-head <sha>
+with `.zcode/bin/super-board-pr-body.sh --pr <P> --block <name> --expect-head <sha>
 (--body-file | --append-file) <md>`. The script refuses (exit 6) when the PR head moved since you
 read it — re-read, then redo the edit. Builder opens the PR with every block filled
 (`super-board-pr-body.sh --skeleton` prints the empty markers).
@@ -249,14 +244,13 @@ Threads are resolved via `gh api graphql` `resolveReviewThread` mutation when th
 Two agents must never build the same thing, and nothing already on the base branch gets built
 twice. So before a Builder starts, a **fresh, cheap sub-agent** (no code, no worktree) checks the
 card. Workflow backend: the wave's `Pre-flight` phase does it, one agent per batch of up to 5 Ready
-cards, before `runLane('build')`. Legacy `claude-p` backend: the Builder runs it as step 0 below,
-in a sub-agent, before touching a worktree.
+cards, before the build lanes run.
 
 ```
-[ ] source .claude/bin/super-board-gh-guard.sh; sb_gh_guard_check 200
-[ ] build the in-flight list: .claude/bin/super-board-card.sh --config <cfg> items (one call) → [{number,title,status}] for
+[ ] source .zcode/bin/super-board-gh-guard.sh; sb_gh_guard_check 200
+[ ] build the in-flight list: .zcode/bin/super-board-card.sh --config <cfg> items (one call) → [{number,title,status}] for
     Building / QA / Review / Ready cards; save it to a temp file
-[ ] bash .claude/bin/super-board-preflight.sh --repo <owner/name> --issues <N[,M…]> \
+[ ] bash .zcode/bin/super-board-preflight.sh --repo <owner/name> --issues <N[,M…]> \
          --inflight <file> [--files <paths you expect to touch>]
 [ ] judge each card: the script's verdict, then its `candidates` (near-misses) semantically
 [ ] act on the outcome below, then return one verdict per card
@@ -301,7 +295,7 @@ column), never built unchecked. `qa` cards are not pre-flighted: nothing is buil
 
 0. Legacy backend only: run the Builder pre-flight above in a sub-agent. Anything but `proceed`
    (or a conflict-note `sequence`) → do what its row says, release the claim, exit.
-1. Create worktree `.claude/worktrees/issue-<N>-build/` off `config.base_branch`.
+1. Create worktree `.zcode/worktrees/issue-<N>-build/` off `config.base_branch`.
 2. Create branch `issue-<N>-<slug>` from `config.base_branch` — unless one already exists
    (the card came back from Building after a stopped run): then check it out, keep its
    commits and open PR, and continue from where it stopped.
@@ -332,7 +326,7 @@ column), never built unchecked. `qa` cards are not pre-flighted: nothing is buil
 
 ### Tester (first pass — repo-backed)
 
-1. Pull latest of base; checkout `issue-<N>-<slug>` into worktree `.claude/worktrees/issue-<N>-qa/`.
+1. Pull latest of base; checkout `issue-<N>-<slug>` into worktree `.zcode/worktrees/issue-<N>-qa/`.
    A `qa` card has no branch yet: move it Ready → QA, then create the branch from the base.
 2. `target.url` set → health-check it first. Unhealthy → Block.
 3. Read issue + PR + Builder's handoff comment.
@@ -379,7 +373,7 @@ If a screenshot file is >5MB, downscale to ≤1920px wide before committing; Git
 
 ### Reviewer
 
-1. Worktree `.claude/worktrees/issue-<N>-review/` from current state of `issue-<N>-<slug>`.
+1. Worktree `.zcode/worktrees/issue-<N>-review/` from current state of `issue-<N>-<slug>`.
 2. **Gate 1** — scan PR threads and their replies. [PR author notes](pr-author-notes.md)
    alone are explanations, not findings. Human questions or change requests in those
    threads still follow the normal review/blocking flow; the marker exempts no replies.
@@ -389,7 +383,7 @@ If a screenshot file is >5MB, downscale to ≤1920px wide before committing; Git
    - `[qa]` open → comment, move card Review → QA.
    - Both open → bounce to whichever is older; the other gets picked up later.
    - Clean up worktree, exit.
-3. Read the issue ACs and the raw diff (code + test files) FIRST and write 2–4 hypotheses of your own — what must hold, where it would break. Only then read the PR description, the `[builder] [report]` comment and Tester's handoff, and check each claim like a hypothesis. Spot-check Tester's evidence (one screenshot at least), read CLAUDE.md / AGENTS.md.
+3. Read the issue ACs and the raw diff (code + test files) FIRST and write 2–4 hypotheses of your own — what must hold, where it would break. Only then read the PR description, the `[builder] [report]` comment and Tester's handoff, and check each claim like a hypothesis. Spot-check Tester's evidence (one screenshot at least), read AGENTS.md.
 3b. **Prior-report check (review remembers — added 2.5.0).** Load the last Reviewer report on this PR as `prior_report`. One call:
    ```
    gh pr view <PR> --json comments \
@@ -464,13 +458,13 @@ on the base branch**.
 5. Merge through the gate, never with a bare `gh pr merge`. Record the head you
    reviewed when review passes, and hand it to the gate:
      HEAD=$(gh pr view <N> --json headRefOid -q .headRefOid)   # at the moment review passes
-     bash .claude/bin/super-board-merge-gate.sh --config <config> --pr <N> --expect-head "$HEAD" \
+     bash .zcode/bin/super-board-merge-gate.sh --config <config> --pr <N> --expect-head "$HEAD" \
        --subject "<PR title>" --body-file <msg.md>
    <msg.md> = the PR's commit bullets, deduplicated, plus `Closes #<issue>` (writing-standard.md § 1).
    The gate takes the merge mutex, checks the PR head is still $HEAD, merges the CURRENT
    base into a scratch worktree at $HEAD, runs `config.verify_commands`, and only then
    squash-merges with `--match-head-commit $HEAD`. After a merge it runs `cleanup-wt --post-merge`
-   when the `.claude/hooks/cleanup-wt.py` hook is installed (local only; a cleanup failure never changes the exit). Route by exit code:
+   when the `.zcode/hooks/cleanup-wt.py` hook is installed (local only; a cleanup failure never changes the exit). Route by exit code:
      9 → verification-readiness: halt the run and preserve card, approval, claims, and worktree. Repair `config.verify_commands` with the project's real checks, then restart explicitly. Never bounce to Build, retry a rebase, or bypass the gate.
      0 → merged; continue to step 4
      2 → the branch no longer builds against the base → **rebase pass** (see below)
@@ -628,20 +622,17 @@ Claim uses a **GitHub Issue assignee mutex** — atomic compare-and-set via `gh 
 
 The `super-board-bot[bot]` identity is either (a) a GitHub App installed on the repo, or (b) the user's own account on solo projects — onboard step 2 picks which. The assignee mutex is reliable because GitHub serializes assignee writes per issue.
 
-### Anti-zombie addendum (added 2026-05-22 after #381 worker storm)
+### Duplicate-dispatch addendum (added 2026-05-22 after #381 worker storm)
 
-Worker-side assignee claim alone is **not sufficient** — `claude -p` cold-start takes 10–30s, during which the dispatcher's next tick can fire another worker for the same card. The 2026-05-21 first-run produced **7 racing workers** (3 on #381, 4 on #382) before the dispatcher died from rate limit.
+Worker-side assignee claim alone is **not sufficient** — a lane start takes 10–30s, during which a second wave can fire another worker for the same card. The 2026-05-21 first-run produced **7 racing workers** (3 on #381, 4 on #382) before the run died from rate limit.
 
-The dispatcher MUST also:
+The orchestrator MUST also:
 
-1. **Claim BEFORE spawning the worker** — `try_claim_assignee` runs in the dispatcher and only proceeds to `nohup claude -p` if it wins the assignee write. Closes the cold-start race.
-2. **Write a local in-flight lock** — `.claude/super-board/inflight/<issue-N>` contains the worker PID. `top_card_in_column` skips any issue with a live lock even if the assignee write hasn't propagated yet.
-3. **Cap one worker per lane** — track `BUILD_PID` / `QA_PID` / `REVIEW_PID`; do not dispatch to a lane whose prior PID is still alive.
-4. **Reap stale locks each tick** — `reap_finished_locks` removes any lock whose PID no longer exists.
-5. **Orphan-scan on startup** — refuse to start if any `claude -p .*super-board run` worker is already running from a prior crashed dispatcher.
-6. **One board read per tick** — `super-board-card.sh items` once per tick, not per column lookup (~1 GraphQL point per 100 cards).
+1. **Claim BEFORE launching the lane** — only launch a lane agent after winning the assignee write. Closes the start race.
+2. **Write a local in-flight lock** — `.zcode/super-board/inflight/<issue-N>` records the lane. The planner skips any issue with a live lock even if the assignee write hasn't propagated yet.
+3. **One board read per wave** — `super-board-card.sh items` once per wave, not per column lookup (~1 GraphQL point per 100 cards).
 
-The three locks (assignee, in-flight file, lane PID) are defense in depth: any one of them alone has a race window; together they make a duplicate dispatch effectively impossible.
+The locks (assignee + in-flight file) are defense in depth: either one alone has a race window; together they make a duplicate dispatch effectively impossible.
 
 ## Halt gates
 
@@ -764,7 +755,7 @@ Records: config used, columns, target, per-card history (claim → completion �
 
 Workers share the dispatcher's gh-auth token bucket. The dispatcher's `gh_rate_guard` does NOT protect worker traffic. Every worker MUST follow `rate-limit-etiquette.md` (in this directory):
 
-- Move and read cards with `.claude/bin/super-board-card.sh --config <cfg> move <issue> <Status>` / `status <issue>` — 1 GraphQL point. Every "move card X → Y" in the lifecycles above means this call. Comments, labels and PR reads go over REST (`rate-limit-etiquette.md` → "Price list").
+- Move and read cards with `.zcode/bin/super-board-card.sh --config <cfg> move <issue> <Status>` / `status <issue>` — 1 GraphQL point. Every "move card X → Y" in the lifecycles above means this call. Comments, labels and PR reads go over REST (`rate-limit-etiquette.md` → "Price list").
 
 - Source `scripts/super-board-gh-guard.sh` at worker start.
 - Call `sb_gh_guard_check 200` before any burst of gh calls (thread reads, sub-agent spawn, exit verification).
@@ -793,26 +784,12 @@ Suspected causes:
 - Worker lost the response to a column move and exited "cleanly" without confirming its outcome. Preserve the unknown outcome and pause; do not claim success or blindly repeat the mutation.
 - Worker's super-build/super-qa/super-review skill silently caught the move error and proceeded to assignee-release without surfacing the failure.
 
-**Mitigation for now:** the dispatcher's `reap_finished_locks` + assignee sweep + re-dispatch keep the pipeline rolling, so this is a wall-clock issue, not a correctness issue. A worker that doesn't move the card will eventually have another worker do it.
+**Mitigation for now:** the lock sweep + assignee sweep + re-dispatch keep the pipeline rolling, so this is a wall-clock issue, not a correctness issue. A lane that doesn't move the card will eventually have another lane do it.
 
 **Required behavior:** check the shared halt record before a column move, attempt the mutation once, and preserve `move-mutation-result: ok|unknown|skipped` in the handoff. An uncertain outcome pauses the run for read-only reconciliation; it must never trigger blind replay.
 
-### Known issue — lane-zombie workers (added 2026-05-24, auto-remediated)
+### Historical note — lane-zombie workers (added 2026-05-24; solved by the workflow backend)
 
-**Symptom seen on fitbox-v4 first run:** a Tester worker successfully moved #81 QA → Review and the Reviewer subsequently merged it to Done — but the original Tester's `claude -p` process kept running for 30+ minutes afterward. The dispatcher's `lane_idle()` check uses `kill -0` on the lane PID and saw the zombie as "still busy," so the QA lane never re-dispatched. By the time it was noticed, the QA column had grown 1 → 2 → 3 cards with no Tester picking them up.
+**Symptom seen on the source project's first run:** a Tester worker successfully moved #81 QA → Review and the Reviewer subsequently merged it to Done — but the original Tester process kept running for 30+ minutes afterward. The legacy dispatcher's `lane_idle()` check saw the zombie as "still busy," so the QA lane never re-dispatched. By the time it was noticed, the QA column had grown 1 → 2 → 3 cards with no Tester picking them up.
 
-Different from the multi-attempt-move issue above: there the worker exited without moving the card; here the worker moved the card but didn't exit.
-
-**Auto-remediation (now implemented in `super-board-run.sh` as anti-zombie control #7):**
-
-Every tick — both cheap and expensive — `sweep_lane_zombies` runs `check_lane_zombie` for each lane. For each lane whose PID is alive AND whose claimed issue's current column is NOT in the lane's expected source set:
-
-| Lane    | Expected source columns | Anything else means → |
-|---------|-------------------------|-----------------------|
-| build   | Ready, Building         | zombie                |
-| qa      | QA                      | zombie                |
-| review  | Review                  | zombie                |
-
-On zombie detection: `SIGTERM` + 1s + `SIGKILL` the PID, remove the inflight lock, idempotently sweep the assignee, clear the lane PID/issue vars, log `💀 zombie <lane> worker on #<N> (pid=<P>) — card moved to '<col>'; killing`. Uses the cached project items only — zero extra API calls per tick.
-
-Trade-off: if someone (human or external tool) manually moves a card out of its source column while a worker is legitimately mid-work, the watchdog will kill that worker. Acceptable — manual board edits during an active run are an anti-pattern, and the worker would fail on its own column-move anyway.
+The workflow backend removes the class: lane agents are wave-scoped, a wave that completes takes its agents with it, and `super-board stop` (TaskStop) cancels what is still running. If a lane result never arrives, the wave reports it and the card is reconciled from board state, not from process liveness.

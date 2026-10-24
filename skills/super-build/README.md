@@ -14,7 +14,8 @@ The Builder: turns a `Ready` card into a branch, the smallest safe change, tests
 ## When To Use It
 
 - Inside a super-board run (the Building lane). This is the normal path.
-- Standalone, as `/super-build` (legacy, opt-in), to drain the `Ready` column of a project with headless `claude -p` workers (3 at a time unless `max_workers` is set); each finished branch becomes a PR and its card moves to `QA`.
+- Standalone, as `/super-build` (interactive), to work the top `Ready` card of a project yourself following the same Builder lifecycle. See SKILL.md.
+time unless `max_workers` is set); each finished branch becomes a PR and its card moves to `QA`.
 
 ## Standalone flags
 

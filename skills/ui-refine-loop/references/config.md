@@ -1,6 +1,6 @@
 # ui-refine-loop config: the `refine` block
 
-These keys are optional and live in the active super-board config (`.claude/super-board/configs/<slug>.json`). `scripts/refine-setup.sh detect` resolves each one in this order: the config key, then auto-detection, then the default. Run `detect` and read its output before setup. Whatever it prints is what the loop will use. Anything in its `warnings` array (also printed to stderr in a banner) goes to the user before the loop starts and into the PR body.
+These keys are optional and live in the active super-board config (`.zcode/super-board/configs/<slug>.json`). `scripts/refine-setup.sh detect` resolves each one in this order: the config key, then auto-detection, then the default. Run `detect` and read its output before setup. Whatever it prints is what the loop will use. Anything in its `warnings` array (also printed to stderr in a banner) goes to the user before the loop starts and into the PR body.
 
 ```jsonc
 "refine": {
@@ -44,7 +44,7 @@ These keys are optional and live in the active super-board config (`.claude/supe
   // Impeccable install: its skill folder, its scripts/impeccable launcher, or any file
   // in its scripts/. Both layouts work: v4.4+ (scripts/impeccable <verb>) and v4.0.x
   // (node scripts/detect.mjs, node scripts/context.mjs).
-  // Auto: .claude/skills/impeccable and .agents/skills/impeccable in this directory
+  // Auto: .zcode/skills/impeccable and .agents/skills/impeccable in this directory
   // and every parent, then under ~. Not found → a loud warning and the built-in
   // rubric (references/rubric.md); a refine.impeccable that points at nothing warns too.
   "impeccable": ".agents/skills/impeccable",

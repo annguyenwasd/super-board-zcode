@@ -16,9 +16,9 @@ for v in $values; do
   grep -q "^| \`$v\` |" "$DOC" || fail "host \`$v\` has no row in $DOC"
   n=$((n + 1))
 done
-[ "$n" -ge 3 ] || fail "expected at least claude, codex and opencode (plus any new host), got: $values"
+[ "$n" -ge 1 ] || fail "expected the zcode row, got: $values"
 
 # README links the page from the Install section (between ## Install and the next ## heading).
 awk '/^## Install/{on=1; next} /^## /{on=0} on' README.md | grep -q '(docs/hosts.md)' \
   || fail "README Install section must link docs/hosts.md"
-echo "PASS: test-hosts-doc.sh ($n hosts)"
+echo "PASS: test-hosts-doc.sh ($n host(s))"

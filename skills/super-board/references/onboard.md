@@ -2,14 +2,14 @@
 
 Config schema and field notes: `config-schema.json`. Loaded by `SKILL.md` for `super-board onboard`.
 
-**Where it runs:** the current Claude Code session, in the user's folder. Not headless.
+**Where it runs:** the current ZCode session, in the user's folder. Not headless.
 Invoked as `/super-board onboard` (get.sh / install.sh) or `/super-board:super-board onboard`
 (plugin install — skill names carry the plugin prefix).
 
 ## Host-visible skill checks
 
-Checks use `.claude/bin/super-board-skills-ready.py --profile setup --host
-<claude|codex|zcode>` and show `helper_readiness`: exact files, declared fallbacks,
+Checks use `.zcode/bin/super-board-skills-ready.py --profile setup --host
+zcode` and show `helper_readiness`: exact files, declared fallbacks,
 optional skips and missing names. Setup checks the unconditional union; a
 selected card may need fewer helpers. Node or `skills-lock.json` never proves
 readiness. `check` and dispatch install nothing. Explicit `fix` retains helper
@@ -26,13 +26,13 @@ only enabled entries applying to this project count.
 | Minimal text | what it found in one line, then the question. Details go in an option's description or one dim line under it — never a paragraph |
 | Recommended first | every question puts its recommended option FIRST, labelled `(Recommended)`, so Enter takes it |
 | One tool | ask with `AskUserQuestion` (≤ 4 questions per call, ≤ 4 options per question; the built-in "Other" box is the free-text option). NEVER free-text a choice that has options |
-| Fix, don't ask | a must-have (skills, scripts, workflows, guard hooks, settings entries, old folders, config keys, labels, columns) is fixed with NO question and listed under "Fixed for you". Only system tools and sign-ins are asked — through Claude Code's own permission prompt on the exact command |
-| Save as you go | every answer is written to `.claude/super-board/onboard-answers.json` the moment it is given |
-| Write once | files in the repo (config, settings.json allow lines, AGENTS.md, CLAUDE.md, docs) change only at step 8, after "Write everything". GitHub-side actions the user just picked (create or extend the board, create `staging`) run in their own step |
-| Secrets | NEVER read, grep, cat or source a dotenv file. Key names only, via `.claude/bin/super-board-env-check.sh` |
+| Fix, don't ask | a must-have (skills, scripts, workflows, guard hooks, settings entries, old folders, config keys, labels, columns) is fixed with NO question and listed under "Fixed for you". Only system tools and sign-ins are asked — through ZCode's own permission prompt on the exact command |
+| Save as you go | every answer is written to `.zcode/super-board/onboard-answers.json` the moment it is given |
+| Write once | files in the repo (config, .zcode/config.json, AGENTS.md, docs) change only at step 8, after "Write everything". GitHub-side actions the user just picked (create or extend the board, create `staging`) run in their own step |
+| Secrets | NEVER read, grep, cat or source a dotenv file. Key names only, via `.zcode/bin/super-board-env-check.sh` |
 
-**Scripts.** `SB=.claude/bin` after an install. Plugin install before step 1 has run: the plugin's
-own copy, `PACK=$(dirname "$(find ~/.claude/plugins -path '*super-board*' -name install.sh -not -path
+**Scripts.** `SB=.zcode/bin` after an install. Plugin install before step 1 has run: the plugin's
+own copy, `PACK=$(dirname "$(find ~/.zcode/cli/plugins -path '*super-board*' -name install.sh -not -path
 '*/node_modules/*' 2>/dev/null | head -1)")`, `SB=$PACK/scripts`. `$PACK` empty → `🛑 Can't find the
 super-board plugin files. Run the one-line installer (get.sh) or ./install.sh <this-dir> from a
 checkout, then re-run onboard.`
@@ -43,8 +43,7 @@ checkout, then re-run onboard.`
 | `python3 $SB/super-board-setup.py board-rank / board-migrate / names` | 1 (upgrade), 3 Board |
 | `python3 $SB/super-board-setup.py branch` | 4 Branch |
 | `python3 $SB/super-board-agents-md.py …` | 5 AGENTS.md |
-| `python3 $SB/super-board-settings.py allow … --dry-run` | 6 Policies |
-| `python3 .claude/skills/super-collect/scripts/collect_custom.py classify / ping / add` | 7 Bug sources |
+| `python3 .zcode/skills/super-collect/scripts/collect_custom.py classify / ping / add` | 7 Bug sources |
 
 ---
 
@@ -78,7 +77,7 @@ checkout, then re-run onboard.`
 | 2 | `2 of 8 · 🔑 GitHub — sign in so I can manage boards.` |
 | 3 | `3 of 8 · 🗂️ Board — the robot takes tickets from here.` |
 | 4 | `4 of 8 · 🌿 Branch — where finished work merges.` |
-| 5 | `5 of 8 · 📜 AGENTS.md — Claude reads AGENTS.md; CLAUDE.md becomes "@AGENTS.md".` |
+| 5 | `5 of 8 · 📜 AGENTS.md — every agent reads one rules file.` |
 | 6 | `6 of 8 · 🛡️ Policies — what the robot may do alone.` |
 | 7 | `7 of 8 · 📥 Bug sources — where to find problems to fix.` |
 | 8 | `8 of 8 · ✅ Review — nothing is written until you say so.` |
@@ -87,7 +86,7 @@ checkout, then re-run onboard.`
 the question:
 
 ```
-⏺ Bash(cat .claude/super-board/onboard-answers.json)
+⏺ Bash(cat .zcode/super-board/onboard-answers.json)
   ⎿  saved 2 Oct, 18:40 · stopped at Policies & permissions
 ⏺ 💾 Found your answers from last time:
   ✓ GitHub: erictech        ✓ board: Ledgerly Roadmap
@@ -102,14 +101,13 @@ Checks always runs again first, silently unless it fixes something.
 **Re-run on a finished setup** (config exists, nothing interrupted): show the current values in
 the step-8 table, then "Onboard found an existing setup. What now?" [Keep all — check and repair
 (Recommended) / Edit an earlier answer / Start over]. Keep all = step 1, the board repair of step 3
-(`board-migrate`, no question), the step-7 pings, the self-check. A CLAUDE.md that is no longer the
-`@AGENTS.md` pointer → step 5 is offered even under Keep all.
+(`board-migrate`, no question), the step-7 pings, the self-check.
 
 ---
 
 ## The answers file
 
-`.claude/super-board/onboard-answers.json` (gitignored — step 8 adds it):
+`.zcode/super-board/onboard-answers.json` (gitignored — step 8 adds it):
 
 ```json
 { "version": 2, "updated": "<iso>", "last_step": "policies",
@@ -117,7 +115,7 @@ the step-8 table, then "Onboard found an existing setup. What now?" [Keep all �
                "board": {"owner": "erictech", "number": 4, "title": "Ledgerly Roadmap", "reused": true},
                "base_branch": "staging", "agents": "merged",
                "policies": {"merge_default": "auto", "protect_main": true, "allowed_envs": ["test", "staging"]},
-               "permissions": "add", "collect": ["sentry", "github", "prs", "architecture", "linear"],
+               "collect": ["sentry", "github", "prs", "architecture", "linear"],
                "custom": [{"name": "linear", "kind": "mcp", "target": "linear"}] } }
 ```
 
@@ -129,7 +127,7 @@ Write it atomically (temp file + rename) after every answer. A halt never loses 
 
 ```
 0. SILENT DETECT (no questions, nothing printed but the start screen)
-   ├─ answers file, .claude/super-board/configs/*.json → resume / re-run screens
+   ├─ answers file, .zcode/super-board/configs/*.json → resume / re-run screens
    ├─ instruction files: python3 $SB/super-board-agents-md.py detect
    ├─ manifests + README (board names), branches + deploy signals ($SB/super-board-setup.py branch)
    ├─ migration dirs (supabase/migrations, prisma/migrations, drizzle, **/migrations/*.sql,
@@ -148,9 +146,9 @@ Write it atomically (temp file + rename) after every answer. A halt never loses 
       's#.*zoneinfo/##', else timedatectl show -p Timezone --value, else "UTC". Shown at step 8.
 
 1. 🔍 CHECKS — nothing asked except system tools and sign-ins
-   ├─ python3 $SB/super-board-setup.py fix --host <actual-worker-host> --text
-   │    Fixes with NO question, backed up first to .claude/super-board/backup/<ts>/:
-   │    skills, .claude/bin scripts, workflows, guard hooks + settings.json entries (runs the
+   ├─ python3 $SB/super-board-setup.py fix --host zcode --text
+   │    Fixes with NO question, backed up first to .zcode/super-board/backup/<ts>/:
+   │    skills, .zcode/bin scripts, workflows, guard hooks + .zcode/config.json entries (runs the
    │    pack's install.sh), removes old skill folders (super-refine, cleanup-wt, arch-loop),
    │    migrates every config to the v3 keys, git init, Matt Pocock's helper skills (Node present).
    ├─ Print its list exactly, one ✓ per line:
@@ -158,10 +156,10 @@ Write it atomically (temp file + rename) after every answer. A halt never loses 
    │        ✓ super-board skills and scripts installed
    │        ✓ board engine (workflow) installed
    │        ✓ 6 safety guards switched on
-   │        ✓ settings.json entries added (backup kept)
+   │        ✓ .zcode/config.json entries added (backup kept)
    │        ✓ git repo found
-   ├─ Each `needs` item (a system tool): one line, then run its `command` with Bash — Claude
-   │    Code's permission prompt IS the question. No AskUserQuestion.
+   ├─ Each `needs` item (a system tool): one line, then run its `command` with Bash — ZCode's
+   │    permission prompt IS the question. No AskUserQuestion.
    │      Needs your machine: Node.js isn't installed. It's needed for the helper installer; actual coding
    │      skills (tests, code review, debugging) the board uses.
    │      → Bash(brew install node && npx -y skills@latest add mattpocock/skills)
@@ -171,14 +169,12 @@ Write it atomically (temp file + rename) after every answer. A halt never loses 
    │    git or gh → halt: "Without <tool> the board can't <why>. Your answers are saved — run
    │    the command, then re-run onboard."
    ├─ Re-check (`check --text`) after every install; move on only when it says all green.
-   ├─ Workflow runtime: syntax-check the installed workflow (same command run.md uses):
-   │      { echo '(async function(){'; sed 's/^export const meta/const meta/' \
-   │        .claude/workflows/super-board-wave.js; echo '})'; } | node --check --input-type=module
-   │    Fails → fix re-copies it; still failing → 🛑 (error table). Remind once: dynamic
-   │    workflows must be ON in /config.
+   └─ Workflow runtime: `.zcode/workflows/super-board-wave.dwf.ts` is present. ZCode
+      typechecks it at launch (CreateWorkflow); a diagnostic means nothing ran. Remind once:
+      dynamic workflows must be available in the session.
    └─ OLDER SUPER-BOARD (the result says `upgraded: true`): same rule, no question. Header
       `1 of 8 · 🔍 Checks — found super-board v<from>; upgrading to v<pack>.` and the list:
-          ⏺ Upgraded for you (backup: .claude/super-board/backup/<ts>/)
+          ⏺ Upgraded for you (backup: .zcode/super-board/backup/<ts>/)
             ✓ skills updated; added super-collect, visual, git-sync, ui-refine-loop
             ✓ removed old folders: super-refine, cleanup-wt, arch-loop
             ✓ scripts, board engine and safety guards updated
@@ -186,14 +182,13 @@ Write it atomically (temp file + rename) after every answer. A halt never loses 
             ✓ labels mapped: build→feature · bug-fix→bug · qa-only→qa (14)
             ✓ Skipped column: 4 cards moved to Done, column removed
             ✓ re-checked: all green
-          Your CLAUDE.md still has its own rules — step 5 offers to move them.
       The two board lines come from `python3 $SB/super-board-setup.py board-migrate --config
       <config>` — run it here when `gh auth status` already has the project scope, else in
       step 3 (it then prints them there). It adds missing columns, creates qa · bug · feature,
       maps old labels, labels every card `qa` on a board that was "qa-only", moves Skipped
       cards to Done, removes Skipped and restores any status the change cleared. Keep the board
       idle during this operation. The helper saves every card/status and label conversion plan
-      in `.claude/super-board/migrations/` before writing to GitHub. A failed upgrade is not a
+      in `.zcode/super-board/migrations/` before writing to GitHub. A failed upgrade is not a
       completed setup: keep the recovery file and re-run the same command from the same project
       root (or with the same `--root`). It resumes the saved plan and verifies remote results;
       it never takes a new snapshot over a partially upgraded board. No extra setup question.
@@ -258,11 +253,11 @@ Write it atomically (temp file + rename) after every answer. A halt never loses 
    └─ main kept with a deploy signal → step 6 defaults to "you merge everything", target_env "live".
 
 5. 📜 AGENTS.md — one line, one question; one short question per conflict
-   ├─ detect says CLAUDE.md is already the pointer → `✓ Already done — CLAUDE.md is "@AGENTS.md".`
-   ├─ No instruction files → "Create AGENTS.md for your project rules?" [Yes (Recommended) —
-   │    CLAUDE.md becomes "@AGENTS.md" / Skip]
-   ├─ Otherwise N = rule units in CLAUDE.md (`units --file CLAUDE.md`):
-   │    AskUserQuestion "Move your N CLAUDE.md rules into AGENTS.md?" (header "AGENTS.md")
+   ├─ AGENTS.md exists with the block → `✓ Already done.`
+   ├─ No AGENTS.md → "Create AGENTS.md for your project rules?" [Yes (Recommended) / Skip]
+   ├─ Other instruction files present (GEMINI.md, .cursorrules, copilot-instructions.md) and
+   │    N = their rule units (`units --file <each>`):
+   │    AskUserQuestion "Move your N rules from <files> into AGENTS.md?" (header "AGENTS.md")
    │      • Yes, move them (Recommended) — backup first, diff before saving
    │      • Only add the super-board section
    │      • Skip
@@ -271,25 +266,23 @@ Write it atomically (temp file + rename) after every answer. A halt never loses 
    │    options quoting BOTH lines verbatim with file:line, the more specific one Recommended.
    │    Then one tool line: Bash(super-board-agents-md.py coverage && check) ⎿ 31/31 rules kept ·
    │    118 lines. Written at step 8.
-   ├─ Only the section → stage `block --create`; a CLAUDE.md alone gets `@AGENTS.md` prepended.
+   ├─ Only the section → stage `block --create`.
    └─ Writing standard, always, no question: stage docs/agents/issue-tracker.md with a
       `## Ticket format` section from references/ticket-format.md (create, or replace only that
       section). The block's "Writing (super-board)" table links it and writing-standard.md.
 
-6. 🛡️ POLICIES — ONE AskUserQuestion call, two questions; details folded
+6. 🛡️ POLICIES — ONE AskUserQuestion call; details folded
    Q1 header "Rules", "Use the safe defaults?"
       • Yes (Recommended) — description: "robot merges normal changes · money/logins/DB wait for
         you · no pushes to main · migrate test + staging only"
         (production base kept: "you merge everything (main goes live) · no pushes to main ·
         migrate test + staging")
       • Review each
-   Q2 header "Permissions", "Let it run its commands without asking each time?"
-      • Yes, add <N> lines to settings.json (Recommended)
-      • No, ask me each time
-   Folded details = ONE dim line under each, never a table:
+   Folded details = ONE dim line, never a table:
       merge_policy.default auto · always_human: money, auth, schema · push guard on (main, master,
       <base>) · migrations.allowed_envs: test, staging
-      + Bash(gh project:*) + Bash(gh issue:*) + Bash(gh pr:*) + … (the --dry-run output, joined)
+   Note once, when merge_policy.default is "auto": whether overnight merges stall depends on the
+   session's permission mode (run-workflow.md → "Mid-run permission prompts").
    Review each → ONE more AskUserQuestion call, up to three questions:
     a. "Merge" — "Who merges a change that passes review?" [Robot merges normal changes
        (Recommended) / I merge everything]; production base: the order flips, and robot-merges
@@ -298,7 +291,7 @@ Write it atomically (temp file + rename) after every answer. A halt never loses 
          snapshots, migration SQL not counted); always_human = schema defaults (money, auth,
          destructive schema). A matching PR parks in Blocked with 🙋.
     b. "Push guard" — "Block pushing straight to main?" [Yes (Recommended for a repo with
-       commits) / No]. Skipped when settings.json already wires guard-protected-push.py. Script
+       commits) / No]. Skipped when .zcode/config.json already wires guard-protected-push.py. Script
        missing (--no-hooks install) → record the answer and say: "Run ./install.sh --no-hooks
        --protect-main <this-dir> — it installs only this guard."
     c. "Databases" (multiSelect, only when migration dirs exist) — "Which databases may the robot
@@ -311,11 +304,6 @@ Write it atomically (temp file + rename) after every answer. A halt never loses 
        failure is fixed here, not discovered at the first merge. For Supabase the URL is the
        Session pooler string (port 5432) with special characters in the password URL-encoded,
        and a just-reset password takes ~20 s to reach the pooler — retry once before calling it wrong.
-   Permission lines: the base list in run-workflow.md → "Mid-run permission prompts", plus the
-   merge lines when merge_policy.default is "auto" ("Bash(bash .claude/bin/super-board-merge-gate.sh:*)",
-   "Bash(gh pr merge:*)"), one "Bash(<migrate command>)" per allowed env, "Bash(bash
-   .claude/bin/super-board-env-check.sh:*)" and the test runner. N counts what is NOT already in
-   settings.json: `super-board-settings.py allow .claude/settings.json <rules…> --dry-run`.
 
 7. 📥 BUG SOURCES — tick sources; "Add another source" is the free-text box
    ├─ AskUserQuestion multiSelect "Where should I look for problems?" (header "Bug sources"):
@@ -329,7 +317,7 @@ Write it atomically (temp file + rename) after every answer. A halt never loses 
    │    Missing key → the exact .env line to add (name only) + scopes: Sentry `event:read
    │    project:read`; PostHog personal key `query:read error_tracking:read`. PostHog failure
    │    events: grep capture() calls for *_failed / *_error, propose them, user confirms.
-   ├─ ➕ typed text → C=.claude/skills/super-collect/scripts/collect_custom.py
+   ├─ ➕ typed text → C=.zcode/skills/super-collect/scripts/collect_custom.py
    │    python3 $C classify "<text>" → kind mcp | http | cli (an app name resolves to one)
    │    python3 $C ping --kind <k> --target <t> [--auth-env <E>] --name <n>   (read-only)
    │      mcp → status "agent": call that server's read/list tool yourself, limit 1, read-only;
@@ -338,8 +326,8 @@ Write it atomically (temp file + rename) after every answer. A halt never loses 
    │    ❌ → say why in one line (401 → the token name to add to .env); never saved; re-test by
    │         typing it again.
    ├─ Ping each built-in, read-only, before step 8:
-   │      python3 .claude/skills/super-collect/scripts/collect_sentry.py  --config <staged> ping
-   │      python3 .claude/skills/super-collect/scripts/collect_posthog.py --config <staged> ping
+   │      python3 .zcode/skills/super-collect/scripts/collect_sentry.py  --config <staged> ping
+   │      python3 .zcode/skills/super-collect/scripts/collect_posthog.py --config <staged> ping
    │      gh api graphql -f query='{viewer{login}}'          (github, prs)
    └─ One result block, one line per source; a failure leaves that source out, never halts:
           ✅ linear — can read issues (12 open bugs); saved in this project's config
@@ -349,26 +337,25 @@ Write it atomically (temp file + rename) after every answer. A halt never loses 
 8. ✅ REVIEW — compact table, then write once
    ├─ Two columns, no borders:
    │      Board    Ledgerly Roadmap #4 (+QA)    Branch   staging (new)
-   │      Rules    safe defaults                Perms    7 lines
-   │      AGENTS   rules moved, CLAUDE.md→@     Sources  sentry, github, prs, arch, linear
+   │      Rules    safe defaults                Perms    session mode
+   │      AGENTS   rules moved into one file    Sources  sentry, github, prs, arch, linear
    ├─ Existing or staged project verifier: list skill/map/runner paths and state
    │    `starter, not run` or the actual selected-feature proof. Preserve human-owned
    │    critical paths and flows; missing source leaves this optional helper absent.
    ├─ AskUserQuestion "Write everything?" (header "Save") [Write everything (Recommended) /
    │    Change one thing → pick the step, walk only it, back here / Cancel — nothing written].
    ├─ Write, in order (each atomic; stop and report on the first failure — answers are kept):
-   │    ├─ .claude/super-board/configs/<slug>.json (committed): description, project, target
+   │    ├─ .zcode/super-board/configs/<slug>.json (committed): description, project, target
    │    │    {type: repo | repo+url}, repo, base_branch, timezone, columns (the seven), labels,
    │    │    paths, merge_policy, migrations, collect (incl. custom), notifications {channel:
-   │    │    "session", bot_identity}, worker_backend "workflow", host (always: `bash $SB/super-board-host.sh`;
-   │    │    on exit 65 ask claude/codex/opencode/zcode), verify_commands (non-blank project checks). No `variant`.
-   │    ├─ .claude/super-board/active ← <slug>
-   │    ├─ .gitignore += .claude/super-board/active, onboard-answers.json, onboard-staged/,
-   │    │    backup/, inflight/, migrations/, upgrade.json (all under .claude/super-board/)
-   │    ├─ settings.json: super-board-settings.py allow … ; protect main →
-   │    │    super-board-settings.py hooks .claude/settings.json <pack>/hooks/settings-protect-main.json
-   │    ├─ AGENTS.md / CLAUDE.md: super-board-agents-md.py backup, then write --src <staged>
-   │    │    --dest AGENTS.md, pointer --tail <staged tail> --force, block, check
+   │    │    "session", bot_identity}, host "zcode", verify_commands (non-blank project checks). No `variant`.
+   │    ├─ .zcode/super-board/active ← <slug>
+   │    ├─ .gitignore += .zcode/super-board/active, onboard-answers.json, onboard-staged/,
+   │    │    backup/, inflight/, migrations/, upgrade.json (all under .zcode/super-board/)
+   │    ├─ protect main → super-board-settings.py zcode-hooks .zcode/config.json
+   │    │    <pack>/hooks/settings-protect-main.json
+   │    ├─ AGENTS.md: super-board-agents-md.py backup, then write --src <staged>
+   │    │    --dest AGENTS.md, block, check
    │    ├─ staged project verifier skill/map/scenarios/runner, if source-backed; then
    │    │    inspect the saved map and resolve the local skill for the actual host.
    │    └─ docs/agents/issue-tracker.md; docs/super-board/PROJECT.md (a sub-agent drafts it from
@@ -389,33 +376,28 @@ DONE — run `python3 $SB/super-board-verification-ready.py --config <saved conf
 
 ## AGENTS.md source of truth
 
-Goal: one instruction file every agent reads (AGENTS.md); CLAUDE.md is the single line
-`@AGENTS.md` plus any Claude-only rules below it. Use the import, not a symlink and not a
-deletion: older Claude Code versions, `CLAUDE.local.md` and some settings only load CLAUDE.md,
-and a committed symlink breaks on Windows.
+Goal: one instruction file every agent reads: AGENTS.md. ZCode loads `<repo>/AGENTS.md`
+(searched up from the working directory), so every other instruction file folds into it.
 
-**Deterministic — always via the script** (`.claude/bin/super-board-agents-md.py`):
+**Deterministic — always via the script** (`.zcode/bin/super-board-agents-md.py`):
 
 | Need | Command |
 |---|---|
-| What exists, pointer or not | `detect` |
-| Back up every instruction file first | `backup` → `.claude/super-board/backup/<ts>/` |
-| Rule units to map | `units --file AGENTS.md --file CLAUDE.md [--file …]` |
-| Lossless gate | `coverage --units mapped.json --target <staged AGENTS.md> --target <staged CLAUDE.md>` |
+| What exists | `detect` |
+| Back up every instruction file first | `backup` → `.zcode/super-board/backup/<ts>/` |
+| Rule units to map | `units --file AGENTS.md [--file <other instruction file> …]` |
+| Lossless gate | `coverage --units mapped.json --target <staged AGENTS.md>` |
 | Size + markers | `check --file <staged AGENTS.md>` (≤ 200 lines, one marker pair) |
 | Write | `write --src <staged> --dest AGENTS.md` (atomic) |
-| CLAUDE.md pointer | `pointer --tail <claude-only.md> --force` (only after backup + approval) |
 | super-board section | `block` (`--create` when AGENTS.md is new) |
 
 **Semantic — the agent, by these rules:**
 
-1. **Split** every source (AGENTS.md, CLAUDE.md, `@imports` expanded, CLAUDE.local.md,
-   .claude/CLAUDE.md) into rule units with `units`.
+1. **Split** every source (AGENTS.md plus any other instruction file: GEMINI.md,
+   .cursorrules, .github/copilot-instructions.md, `@imports` expanded) into rule units with `units`.
 2. **Classify each unit**:
-   - Duplicate (same directive in both) → keep ONE, the more specific wording.
-   - Tool-agnostic CLAUDE-only rule → move into the matching AGENTS.md section.
-   - Claude-specific (hooks, slash commands, subagents, model choice, Claude tool names) →
-     stays in CLAUDE.md below `@AGENTS.md`.
+   - Duplicate (same directive in two files) → keep ONE, the more specific wording.
+   - Rule from another file → move into the matching AGENTS.md section.
    - Conflict (same subject, different directive — npm vs pnpm) → NEVER auto-resolve. One
      AskUserQuestion per conflict, quoting BOTH lines verbatim, with file:line.
    - Stale (names a path or script that no longer exists) → ask keep or drop.
@@ -431,7 +413,7 @@ and a committed symlink breaks on Windows.
      prohibition into a suggestion.
    - ≤ 200 lines. Overflow → `docs/agents/<topic>.md` with a one-line pointer in AGENTS.md
      (a pointer, not an `@import` — imports do not cut context cost).
-5. **Show** the diff of AGENTS.md and CLAUDE.md folded under the coverage line; the step-8
+5. **Show** the diff of AGENTS.md folded under the coverage line; the step-8
    "Write everything" is the approval. Nothing is written before step 8.
 
 **The super-board section** sits between `<!-- super-board:begin vX.Y.Z … -->` and
@@ -451,8 +433,8 @@ answers are kept and it resumes at <step>".
 | 1 | Pack files not found (plugin) | `🛑 Can't find the super-board plugin files. Run the one-line installer (get.sh) or ./install.sh <this-dir> from a checkout, then re-run onboard.` |
 | 1 | A tool install declined (git, gh) | `Without <tool> the board can't <why>. Your answers are saved — run <command>, then re-run onboard.` |
 | 1 | Node declined, or `npx skills add` fails | `⚠️ Required worker skills remain unavailable: <exact names>. Install for <host> and restart.` Setup stays red; dispatch halts before claims. |
-| 1 | Workflow still fails `node --check` after the re-copy | `🛑 .claude/workflows/super-board-wave.js is corrupt. Re-run ./install.sh <this-dir> — don't hand-edit it.` |
-| 1 | settings.json invalid JSON | `✋ .claude/settings.json is not valid JSON; I left it untouched. Fix it, then re-run — only the settings entries repeat.` |
+| 1 | `.zcode/workflows/super-board-wave.dwf.ts` missing after fix | `🛑 The workflow file is missing. Re-run ./install.sh <this-dir> — don't hand-edit it.` |
+| 1 | .zcode/config.json invalid JSON | `✋ .zcode/config.json is not valid JSON; I left it untouched. Fix it, then re-run — only the hook entries repeat.` |
 | 2 | Scope refused in the browser | `🔑 GitHub asked for project,read:project,repo and you said no. Without them I can't read or move cards. Re-run: gh auth refresh -s project,read:project,repo.` |
 | 2 | Repo create refused | `📦 GitHub refused to create the repo (org admin required, or the free-repo quota). Pick an existing repo, or create one in the web UI, then re-run.` |
 | 3 | Org project denied | `🔑 You can't create projects under <org>. Ask an org admin, or use your account: gh project create --owner @me.` |
@@ -484,19 +466,18 @@ remove a pending recovery record; use its saved state to reconcile a conflict be
 
 ## Worker self-check (mandatory before the 🎉 screen)
 
-1. **Config validates** — `.claude/super-board/configs/<slug>.json` parses, has every required
+1. **Config validates** — `.zcode/super-board/configs/<slug>.json` parses, has every required
    field from `config-schema.json` (incl. `notifications.bot_identity`, `merge_policy`,
    `migrations`), has no `variant`, and `columns` is the seven.
-2. **Active pointer** — `.claude/super-board/active` holds exactly the slug + `\n`.
+2. **Active pointer** — `.zcode/super-board/active` holds exactly the slug + `\n`.
 3. **Board columns and labels** — `gh project field-list <n> --owner <o>` returns Backlog, Ready,
    Building, QA, Review, Blocked, Done (no Skipped); `gh label list` has qa, bug, feature.
-4. **Setup green** — `python3 .claude/bin/super-board-setup.py check` exits 0 (or only `needs`
+4. **Setup green** — `python3 .zcode/bin/super-board-setup.py check` exits 0 (or only `needs`
    the user declined).
-5. **Workflow runtime** — unless `worker_backend` is `"claude-p"`, the step-1 `node --check` passes.
+5. **Workflow runtime** — `.zcode/workflows/super-board-wave.dwf.ts` exists.
 
-When step 5 wrote files: `super-board-agents-md.py check --file AGENTS.md` passes and `detect`
-reports CLAUDE.md as a pointer (unless "Only add the super-board section"). Any check fails →
-no 🎉: name the failed check and say "re-run `/super-board onboard` — it resumes there".
+When step 5 wrote files: `super-board-agents-md.py check --file AGENTS.md` passes. Any check
+fails → no 🎉: name the failed check and say "re-run `/super-board onboard` — it resumes there".
 
 ## Project-owned verification checks
 

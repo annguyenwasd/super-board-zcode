@@ -18,12 +18,12 @@ Every command prints one JSON object. `--text` on check/fix prints the short ✓
 onboard screen shows instead.
 
 What `fix` does, with NO question (all of it backed up first to
-.claude/super-board/backup/<ts>/):
-  - installs or refreshes skills, .claude/bin scripts, workflows, guard hooks and their
-    settings.json entries (runs the pack's install.sh) when any is missing or older
+.zcode/super-board/backup/<ts>/):
+  - installs or refreshes skills, .zcode/bin scripts, workflows, guard hooks and their
+    .zcode/config.json entries (runs the pack's install.sh) when any is missing or older
   - removes the folders of skills that no longer exist: super-refine, cleanup-wt, arch-loop
-  - migrates every .claude/super-board/configs/*.json to the v3 keys (migrate-config), and
-    writes a missing top-level `host` from --host (check flags a host outside claude/codex/opencode/zcode)
+  - migrates every .zcode/super-board/configs/*.json to the v3 keys (migrate-config), and
+    writes a missing top-level `host` ("zcode"; check flags any other value)
   - `git init` when the folder is not a repo
   - adds Matt Pocock's helper skills with npx when Node is present and they are missing
 It never installs a system tool or signs in: those come back in `needs` with the exact
@@ -34,11 +34,11 @@ Status options (--prune-empty also drops unused extras such as a new board's Tod
 creates the three labels, maps old type labels, labels every card `qa`
 on a board that was "qa-only" (--qa-all), moves Skipped cards to Done, removes the Skipped
 option, and puts back any card status the option rewrite cleared. Before any write it saves
-all cards and conversion intent in .claude/super-board/migrations/ (under --root, the config project root, or cwd).
+all cards and conversion intent in .zcode/super-board/migrations/ (under --root, the config project root, or cwd).
 Re-run the same command from the same root to recover an interrupted upgrade. Keep the
 board idle during migration: GitHub has no atomic compare-and-swap for field rewrites.
 Before the first option rewrite it also saves the original card statuses to
-.claude/super-board/backup/board-<number>-<ts>.json for manual recovery.
+.zcode/super-board/backup/board-<number>-<ts>.json for manual recovery.
 No card is deleted. Detected concurrent edits are preserved or halt recovery.
 
 Exit: 0 ok · 1 check found red items · 2 a gh call failed · 64 usage · 66 pack not found.
@@ -59,7 +59,7 @@ import subprocess
 import sys
 
 COLUMNS = ["Backlog", "Ready", "Building", "QA", "Review", "Blocked", "Done"]
-HOSTS = ("claude", "codex", "opencode", "zcode")  # config `host`; super-board-host.sh accepts the same
+HOSTS = ("zcode",)  # the only host this pack supports; super-board-host.sh accepts the same
 LABELS = {
     "qa": ("0e8a16", "Test what exists; skips Building (super-board)"),
     "bug": ("d73a4a", "Something is broken; built, tested, reviewed (super-board)"),
@@ -73,12 +73,12 @@ OLD_LABELS = {
 }
 SKILLS = ["super-board", "super-build", "super-qa", "super-review", "super-collect", "visual", "git-sync", "ui-refine-loop"]
 OLD_SKILL_DIRS = ["super-refine", "cleanup-wt", "arch-loop"]
-BIN = ["super-board-project-verifier.py", "super-board-skills-ready.py", "super-board-host.sh", "super-board-codex-wave.sh", "super-board-codex-lane.sh", "super-board-calibration.py", "super-board-verification-ready.py", "super-board-github-read.py", "super-board-collect-state.py", "super-board-run.sh", "super-board-gh-guard.sh", "super-board-card.sh", "super-board-status.py", "super-board-wave-plan.sh",
+BIN = ["super-board-project-verifier.py", "super-board-skills-ready.py", "super-board-host.sh", "super-board-calibration.py", "super-board-verification-ready.py", "super-board-github-read.py", "super-board-collect-state.py", "super-board-gh-guard.sh", "super-board-card.sh", "super-board-status.py", "super-board-wave-plan.sh",
        "super-board-deps.sh", "super-board-preflight.sh", "super-board-merge-gate.sh",
        "super-board-merge-policy.py", "super-board-approval.py", "super-board-env-check.sh", "super-board-agents-md.py",
-       "super-board-settings.py", "super-board-setup.py", "super-board-usage.sh", "super-board-pr-body.sh",
+       "super-board-settings.py", "super-board-setup.py", "super-board-pr-body.sh",
        "super-review-file-refactor.sh", "super-qa-file-bug.sh", "super-board-stop.sh"]
-WORKFLOWS = ["super-board-wave.js", "ui-refine-loop.js"]
+WORKFLOWS = ["super-board-wave.dwf.ts", "ui-refine-loop.dwf.ts"]
 HELPERS_CMD = "npx -y skills@latest add mattpocock/skills --skill '*' -a zcode -y"
 
 # System tools: why the board needs each, and the install command per OS family.
@@ -161,7 +161,7 @@ def find_pack(explicit=None):
     """The pack checkout whose install.sh can (re)install pieces. None when not found."""
     cands = [explicit, os.environ.get("SUPER_BOARD_PACK"),
              os.path.dirname(os.path.dirname(os.path.abspath(__file__)))]
-    home = os.path.expanduser("~/.claude/plugins")
+    home = os.path.expanduser("~/.zcode/cli/plugins")
     if os.path.isdir(home):
         cands += sorted(os.path.dirname(p) for p in glob.glob(os.path.join(home, "**", "install.sh"), recursive=True)
                         if "super-board" in p and "node_modules" not in p)
@@ -171,7 +171,7 @@ def find_pack(explicit=None):
     return None
 
 
-def helper_readiness(root, host="claude", home=None, catalog=None):
+def helper_readiness(root, host="zcode", home=None, catalog=None):
     command = [sys.executable, os.path.join(os.path.dirname(__file__), "super-board-skills-ready.py"),
                "--root", root, "--host", host, "--profile", "setup"]
     if home:
@@ -197,15 +197,11 @@ def snippet_commands(pack):
     return [h["command"] for entries in snip["hooks"].values() for e in entries for h in e.get("hooks", [])]
 
 
-def settings_commands(root, host="claude"):
-    # zcode runs the same guard commands wired one level deeper: .zcode/config.json
+def settings_commands(root, host="zcode"):
+    # zcode wires the same guard commands one level deeper: .zcode/config.json
     # hooks.events (written by super-board-settings.py zcode-hooks).
-    if host == "zcode":
-        s = load_json(os.path.join(root, ".zcode", "config.json")) or {}
-        events = ((s.get("hooks") or {}).get("events") or {}).values()
-    else:
-        s = load_json(os.path.join(root, ".claude", "settings.json")) or {}
-        events = (s.get("hooks") or {}).values()
+    s = load_json(os.path.join(root, ".zcode", "config.json")) or {}
+    events = ((s.get("hooks") or {}).get("events") or {}).values()
     return {h.get("command") for ev in events for e in ev for h in e.get("hooks", [])}
 
 
@@ -274,9 +270,6 @@ def migrate_config(cfg, host=None):
     if not c.get("timezone"):
         c["timezone"] = machine_tz()
         changes.append(f"timezone {c['timezone']} added")
-    if not c.get("worker_backend"):
-        c["worker_backend"] = "workflow"
-        changes.append("worker_backend \"workflow\" added")
     if host and "host" not in c:
         c["host"] = host
         changes.append(f"host \"{host}\" added")
@@ -286,30 +279,30 @@ def migrate_config(cfg, host=None):
 # ── check / fix ────────────────────────────────────────────────────────────────
 
 def installed_version(root):
-    return read(os.path.join(root, ".claude", "skills", "super-board", "VERSION")) or None
+    return read(os.path.join(root, ".zcode", "skills", "super-board", "VERSION")) or None
 
 
-def check(root, pack, host="claude", home=None, catalog=None):
-    claude = os.path.join(root, ".claude")
+def check(root, pack, host="zcode", home=None, catalog=None):
+    zcode = os.path.join(root, ".zcode")
     pack_version = read(os.path.join(pack, "VERSION")) if pack else None
     have_v = installed_version(root)
-    upgrade_rec = load_json(os.path.join(claude, "super-board", "upgrade.json")) or {}
+    upgrade_rec = load_json(os.path.join(zcode, "super-board", "upgrade.json")) or {}
     missing = []
-    missing += [f"skill {s}" for s in SKILLS if not os.path.isfile(os.path.join(claude, "skills", s, "SKILL.md"))]
-    missing += [f"script {b}" for b in BIN if not os.path.isfile(os.path.join(claude, "bin", b))]
-    missing += [f"workflow {w}" for w in WORKFLOWS if not os.path.isfile(os.path.join(claude, "workflows", w))]
+    missing += [f"skill {s}" for s in SKILLS if not os.path.isfile(os.path.join(zcode, "skills", s, "SKILL.md"))]
+    missing += [f"script {b}" for b in BIN if not os.path.isfile(os.path.join(zcode, "bin", b))]
+    missing += [f"workflow {w}" for w in WORKFLOWS if not os.path.isfile(os.path.join(zcode, "workflows", w))]
     hook_files = sorted(os.path.basename(p) for p in glob.glob(os.path.join(pack, "hooks", "*.py"))) if pack else []
-    missing += [f"hook {h}" for h in hook_files if not os.path.isfile(os.path.join(claude, "hooks", h))]
+    missing += [f"hook {h}" for h in hook_files if not os.path.isfile(os.path.join(zcode, "hooks", h))]
     wired = settings_commands(root, host)
     unwired = [c for c in snippet_commands(pack) if c not in wired]
     if unwired:
-        fname = ".zcode/config.json" if host == "zcode" else "settings.json"
+        fname = ".zcode/config.json"
         missing.append(f"{fname}: {len(unwired)} guard entr{'y' if len(unwired) == 1 else 'ies'}")
-    old_dirs = [d for d in OLD_SKILL_DIRS if os.path.isdir(os.path.join(claude, "skills", d))]
+    old_dirs = [d for d in OLD_SKILL_DIRS if os.path.isdir(os.path.join(zcode, "skills", d))]
     configs = {}
     verification = {}
     host_errors = {}
-    for p in sorted(glob.glob(os.path.join(claude, "super-board", "configs", "*.json"))):
+    for p in sorted(glob.glob(os.path.join(zcode, "super-board", "configs", "*.json"))):
         cfg = load_json(p)
         ready = subprocess.run([sys.executable, os.path.join(os.path.dirname(__file__),
                                 "super-board-verification-ready.py"), "--config", p],
@@ -361,7 +354,7 @@ def check(root, pack, host="claude", home=None, catalog=None):
 
 
 def backup(root, paths, stamp):
-    dest = os.path.join(root, ".claude", "super-board", "backup", stamp)
+    dest = os.path.join(root, ".zcode", "super-board", "backup", stamp)
     for p in paths:
         if not os.path.exists(p):
             continue
@@ -372,13 +365,13 @@ def backup(root, paths, stamp):
     return os.path.relpath(dest, root) + "/"
 
 
-def fix(root, pack, helpers=True, dry=False, host="claude", home=None, catalog=None):
+def fix(root, pack, helpers=True, dry=False, host="zcode", home=None, catalog=None):
     before = check(root, pack, host, home, catalog)
     fixed, notes = [], []
-    claude = os.path.join(root, ".claude")
+    zcode = os.path.join(root, ".zcode")
     stamp = dt.datetime.now().strftime("%Y%m%d-%H%M")
-    to_backup = [os.path.join(claude, "settings.json"), os.path.join(claude, "super-board", "configs")]
-    to_backup += [os.path.join(claude, "skills", d) for d in before["old_dirs"]]
+    to_backup = [os.path.join(zcode, "config.json"), os.path.join(zcode, "super-board", "configs")]
+    to_backup += [os.path.join(zcode, "skills", d) for d in before["old_dirs"]]
     bdir = None
     if not dry and (before["missing"] or before["old_dirs"] or before["configs"] or before["upgrade"]):
         bdir = backup(root, to_backup, stamp)
@@ -391,7 +384,7 @@ def fix(root, pack, helpers=True, dry=False, host="claude", home=None, catalog=N
                     input="", cwd=root)
             if r.returncode != 0:
                 return {**before, "fixed": fixed, "error": "install.sh failed: " + (r.stderr or r.stdout)[-300:]}
-            rec = load_json(os.path.join(claude, "super-board", "upgrade.json")) or {}
+            rec = load_json(os.path.join(zcode, "super-board", "upgrade.json")) or {}
             before["added_skills"] = rec.get("added_skills", before["added_skills"])
         if before["upgrade"]:
             fixed.append("scripts, board engine and safety guards updated")
@@ -400,7 +393,7 @@ def fix(root, pack, helpers=True, dry=False, host="claude", home=None, catalog=N
             if any(m.startswith("hook") or m.startswith("settings") for m in before["missing"]):
                 n = len(glob.glob(os.path.join(pack, "hooks", "*.py")))
                 fixed.append(f"{n} safety guards switched on")
-                fixed.append("settings.json entries added (backup kept)")
+                fixed.append(".zcode/config.json entries added (backup kept)")
     elif before["upgrade"]:
         fixed.append("scripts, board engine and safety guards updated")
     if before["upgrade"]:
@@ -410,7 +403,7 @@ def fix(root, pack, helpers=True, dry=False, host="claude", home=None, catalog=N
     if before["old_dirs"]:
         if not dry:
             for d in before["old_dirs"]:
-                shutil.rmtree(os.path.join(claude, "skills", d), ignore_errors=True)
+                shutil.rmtree(os.path.join(zcode, "skills", d), ignore_errors=True)
         fixed.append("removed old folders: " + ", ".join(before["old_dirs"]))
 
     for rel, ch in before["configs"].items():
@@ -442,7 +435,7 @@ def fix(root, pack, helpers=True, dry=False, host="claude", home=None, catalog=N
             notes.append("would attempt helper installation, then re-resolve actual host-visible files")
 
     if not dry:
-        up = os.path.join(claude, "super-board", "upgrade.json")
+        up = os.path.join(zcode, "super-board", "upgrade.json")
         if os.path.exists(up):
             os.remove(up)
     after = check(root, pack, host, home, catalog) if not dry else before
@@ -763,7 +756,7 @@ def board_migrate(owner, number, repo, qa_all=False, dry=False, prune_empty=Fals
     if not isinstance(proj, dict) or not isinstance(proj.get('id'), str) or not proj.get('url'):
         raise RuntimeError('GitHub omitted the project identity')
     pid = proj['id']
-    path = os.path.join(root or os.getcwd(), '.claude', 'super-board', 'migrations',
+    path = os.path.join(root or os.getcwd(), '.zcode', 'super-board', 'migrations',
                         hashlib.sha256(pid.encode()).hexdigest()[:24] + '.json')
     binding = {'project': pid, 'owner': owner, 'number': number, 'repo': repo}
     if dry:
@@ -979,9 +972,9 @@ def main(argv):
     try:
         if cmd in ("check", "fix"):
             pack = find_pack(flag(rest, "--pack"))
-            host, home, catalog = flag(rest, "--host", "claude"), flag(rest, "--home", os.environ.get("SUPER_BOARD_SKILLS_HOME")), flag(rest, "--catalog", os.environ.get("SUPER_BOARD_SKILLS_CATALOG"))
-            if host not in ("claude", "codex", "zcode"):
-                raise ValueError("--host must be claude, codex or zcode")
+            host, home, catalog = flag(rest, "--host", "zcode"), flag(rest, "--home", os.environ.get("SUPER_BOARD_SKILLS_HOME")), flag(rest, "--catalog", os.environ.get("SUPER_BOARD_SKILLS_CATALOG"))
+            if host != "zcode":
+                raise ValueError("--host must be zcode")
             res = check(root, pack, host, home, catalog) if cmd == "check" else fix(root, pack, "--no-helpers" not in rest, dry, host, home, catalog)
             if res.get("error") == "pack-not-found":
                 print(json.dumps(res, indent=1))
@@ -1013,7 +1006,7 @@ def main(argv):
             cfg_path = flag(rest, "--config")
             if cfg_path and "--root" not in rest:
                 config_dir = os.path.dirname(os.path.abspath(cfg_path))
-                suffix = os.path.join('.claude', 'super-board', 'configs')
+                suffix = os.path.join('.zcode', 'super-board', 'configs')
                 root = config_dir[:-len(suffix)].rstrip(os.sep) if config_dir.endswith(os.sep + suffix) else config_dir
             cfg = load_json(cfg_path) if cfg_path else {}
             cfg = cfg if isinstance(cfg, dict) else {}

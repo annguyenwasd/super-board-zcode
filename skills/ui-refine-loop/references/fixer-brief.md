@@ -21,7 +21,7 @@ Run each command's playbook against the scope paths as a refinement of the incum
 - **Stay in scope.** Touch a file outside scope only when the fix can't live inside it, and record it in `outOfScope` with the reason.
 - **Light and dark both.** Every color or surface change must hold in both themes. Use tokens, not raw values.
 - **Refinement preserves.** Keep the meaning of the copy, the behaviour and the data flow. Never change factual copy or add claims.
-- The repo's `CLAUDE.md` and `AGENTS.md` guardrails bind you.
+- The repo's `AGENTS.md` guardrails bind you.
 
 ## 4. Prove it, or revert
 

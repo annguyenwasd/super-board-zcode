@@ -1,43 +1,33 @@
-# Agent hosts
+# Agent host
 
-super-board runs inside an agent host: the CLI whose session types `/super-board run`.
-`scripts/super-board-host.sh` (installed as `.claude/bin/super-board-host.sh`) names it.
+super-board runs inside ZCode: the host whose session types `/super-board run`.
+This pack is ZCode-only; `scripts/super-board-host.sh` (installed as
+`.zcode/bin/super-board-host.sh`) names the host and refuses everything else.
 
 | Host value | Tested version | Start a run | Sign-in | Gaps |
 |---|---|---|---|---|
-| `claude` | Claude Code 2.1.302 | `/super-board run` (Workflow backend) | `claude` then `/login`; `gh auth login` | None. The reference host. |
-| `codex` | codex-cli 0.160.0 | `/super-board run` inside Codex runs as `--codex`; from Claude, `/super-board run --codex` | `codex login`; `gh auth login` | No Workflow tool, so every lane is headless `codex exec`. Review runs only with explicit `--codex` (a host-switched plain `run` counts). No Claude usage guard. |
-| `opencode` | OpenCode v2.0.22 | Not supported yet: the run halts with a host-selection request | `opencode auth login`; `gh auth login` | No OpenCode lane backend yet. `permission.external_directory: deny` is not enforced in v2.0.22 (`patch` still writes outside the repo), so OpenCode runs stay attended-only once a backend lands. |
-| `zcode` | ZCode 3.16.3 | `/super-board run` (workflow backend via the saved ZCode workflow `super-board-wave`) | sign in to ZCode's provider; `gh auth login` | Both workflows are ported to ZCode's facade and shipped by install.sh into `.zcode/workflows/`. Full-card cycle verified on 2026-10-24 (see `.audit/zcode-host.tsv`): card #1 went Ready → Building → QA → Review → Blocked (gate env-leak bug, filed and fixed as #3) → Review → Done with PR #2 squash-merged through the merge gate; 4 waves, ~15M tokens total. The run also surfaced and fixed two real pack bugs (merge-gate env leak into verify_commands; reply-less comment replies-read halting the run). Model ladders are flat on ZCode: every lane runs on the run's model. Guard hooks land in `.zcode/config.json` in ZCode's `hooks.events` shape with `enabled: true` (a live hook fire in ZCode is not yet observed). |
+| `zcode` | ZCode 3.16.3 | `/super-board run` (workflow backend via the saved ZCode workflow `super-board-wave`) | sign in to ZCode's provider; `gh auth login` | Both workflows are ported to ZCode's facade and shipped by install.sh into `.zcode/workflows/`. Full-card cycle verified on 2026-10-24 (see `.audit/zcode-host.tsv`): card #1 went Ready → Building → QA → Review → Blocked (gate env-leak bug, filed and fixed as #3) → Review → Done with PR #2 squash-merged through the merge gate; 4 waves, ~15M tokens total. The run also surfaced and fixed two real pack bugs (merge-gate env leak into verify_commands; reply-less comment replies-read halting the run). Model ladders are flat on ZCode: every lane runs on the run's model. Guard hooks land in `.zcode/config.json` in ZCode's `hooks.events` shape with `enabled: true`. |
 
-Every host also needs `gh`, `jq`, bash 3.2+ and Python 3.9+.
+The host also needs `gh`, `jq`, bash 3.2+ and Python 3.9+.
 
 ## How the host is picked
 
 `super-board-host.sh [--config <config.json>]` prints one value. First match wins:
 
-1. `SUPER_BOARD_HOST=claude|codex|opencode|zcode`, the manual override. Any other value exits 64.
-2. `CODEX_THREAD_ID` or `CODEX_SESSION_ID` → `codex`.
-3. `OPENCODE=1` → `opencode`. Checked before `CLAUDECODE`, which leaks into an OpenCode
-   session started from Claude Code. `AGENT=1` is ignored: other tools set it too.
-4. `ZCODE_APP_VERSION` → `zcode`. Checked before `CLAUDECODE` for the same reason: a ZCode
-   session started from a Claude terminal inherits `CLAUDECODE`. `ZCODE_ENV` and
-   `ZCODE_BASE_URL` are ignored (shapes other tools copy).
-5. `CLAUDECODE` → `claude`.
-6. The board config's top-level `host` key, when `--config` is given.
-7. Nothing matched: empty stdout, a hint on stderr, exit 65. The run halts and asks for a
-   host. It never guesses Claude.
+1. `SUPER_BOARD_HOST=zcode`, the manual override. Any other value exits 64.
+2. `ZCODE_APP_VERSION` → `zcode`. `ZCODE_ENV` and `ZCODE_BASE_URL` are ignored
+   (shapes other tools copy).
+3. The board config's top-level `host` key, when `--config` is given.
+4. Nothing matched: empty stdout, a hint on stderr, exit 65. The run halts and
+   asks for a host. It never guesses.
 
-A live env sign beats the saved config, so a Codex lane started from a Claude-configured
-board still answers `codex`.
+A live env sign beats the saved config.
 
-Onboard always writes `host` into `.claude/super-board/configs/<slug>.json`.
-`super-board-setup.py fix` adds a missing one from `--host`; `check` flags any other value.
+Onboard always writes `host: "zcode"` into `.zcode/super-board/configs/<slug>.json`.
+`super-board-setup.py fix` adds a missing one from `--host`; `check` flags any
+other value.
 
 ## Evidence
 
-- Codex: env of `codex exec -s read-only`, 2026-10-04 (recorded in the script header).
-- OpenCode: env diff of an `opencode run` shell, 2026-10-19: `OPENCODE=1`,
-  `OPENCODE_SESSION_ID`, `OPENCODE_TERMINAL=1`, `AGENT=1`.
 - ZCode: env of a ZCode 3.16.3 desktop shell, 2026-10-24: `ZCODE_APP_VERSION`,
-  `ZCODE_ENV`, `ZCODE_BASE_URL`, `ZCODE_BUILD_COMMIT_ID`, and no `CLAUDECODE`.
+  `ZCODE_ENV`, `ZCODE_BASE_URL`, `ZCODE_BUILD_COMMIT_ID`.

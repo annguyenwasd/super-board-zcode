@@ -68,7 +68,7 @@ If the input is ambiguous, default to reviewing the current branch against its u
      diff adds that looks shallow.
    - Scope is the diff, **never the whole codebase**. A hot spot three modules away
      is not this PR's problem.
-   - Check app-specific conventions from the nearest `CLAUDE.md` / `AGENTS.md`, especially:
+   - Check app-specific conventions from the nearest `AGENTS.md`, especially:
      - `clock.now()` instead of `new Date()`;
      - services own business logic, repositories own data access;
      - job handlers own outer transactions;
@@ -294,15 +294,15 @@ When invoked by super-board (env `SUPER_BOARD_RUN=1` or invocation contains "sup
 
 ### State protocol
 - Read from issue + PR comments + PR review threads.
-- **GitHub budget** — every "move card" is `.claude/bin/super-board-card.sh --config <cfg> move <N> <Status>` (1 GraphQL point; `gh project item-list` / `field-list` cost ~100–200). Comments, labels and PR reads go over REST; [rate-limit-etiquette.md](../super-board/references/rate-limit-etiquette.md) → "Price list" has the calls.
-- Respect handed-down worktree at `.claude/worktrees/issue-<N>-review/` and branch `issue-<N>-<slug>`.
+- **GitHub budget** — every "move card" is `.zcode/bin/super-board-card.sh --config <cfg> move <N> <Status>` (1 GraphQL point; `gh project item-list` / `field-list` cost ~100–200). Comments, labels and PR reads go over REST; [rate-limit-etiquette.md](../super-board/references/rate-limit-etiquette.md) → "Price list" has the calls.
+- Respect handed-down worktree at `.zcode/worktrees/issue-<N>-review/` and branch `issue-<N>-<slug>`.
 
 ### Two card types
 - **Built card (`feature`, `bug`, no label):** review the diff (code + tests).
 - **`qa` card:** review the QA report quality and any test diff; there is no product-code diff.
 
 ### Lifecycle (Reviewer)
-See `.claude/skills/super-board/references/run.md` → Reviewer. Summary of the sub-steps:
+See `.zcode/skills/super-board/references/run.md` → Reviewer. Summary of the sub-steps:
 
 1. Worktree from current state of `issue-<N>-<slug>`.
 2. **Gate 1 — thread scan.** Read threads and replies. [PR author notes](../super-board/references/pr-author-notes.md)
@@ -314,7 +314,7 @@ See `.claude/skills/super-board/references/run.md` → Reviewer. Summary of the 
    - `[qa]` open → comment, move card Review → QA.
    - Both open → bounce to whichever is older.
    - Clean up worktree, exit.
-3. Read PR + spot-check Tester evidence + read CLAUDE.md / AGENTS.md.
+3. Read PR + spot-check Tester evidence + read AGENTS.md.
    Check the Risk block against the diff: is the Door right (one-way: DROP, rename, data rewrite, public API, sent email) and the Blast radius honest? Fix it with `super-board-pr-body.sh --block risk`; a one-way door is never 🟢.
    **3b. Prior-report check** — load `prior_report` (see "Review remembers"); if present, round 1 checks each prior finding; any `not fixed` → re-open its thread, bounce by prefix, post the report, exit.
 4. Review code + tests.

@@ -64,10 +64,9 @@ def installed_skill(settings, root):
         candidates = [path_from(explicit, root)]
     else:
         candidates = [root / '.agents/skills/calibrate/SKILL.md',
-                      root / '.claude/skills/calibrate/SKILL.md',
+                      root / '.zcode/skills/calibrate/SKILL.md',
                       Path.home() / '.agents/skills/calibrate/SKILL.md',
-                      Path.home() / '.claude/skills/calibrate/SKILL.md',
-                      Path.home() / '.codex/skills/calibrate/SKILL.md']
+                      Path.home() / '.zcode/skills/calibrate/SKILL.md']
     for path in candidates:
         path = path.resolve()
         if is_skill(path):
@@ -104,11 +103,10 @@ def prepare(config, receipt_path, cwd):
     require(receipt.get('source') == 'final-reconciliation' and receipt.get('outcome') == 'completed',
             'not-completed')
     require(receipt.get('active_workers') == [] and receipt.get('pending') == [], 'unfinished-work')
-    inflight = root / '.claude/super-board/inflight'
+    inflight = root / '.zcode/super-board/inflight'
     require(not inflight.exists() or not any(re.fullmatch(r'\d+', p.name) for p in inflight.iterdir()),
             'unfinished-work')
-    require(not (inflight / 'workflow-wave.lock').exists() and
-            not (root / '.claude/super-board/codex-wave.pid').exists(), 'unfinished-work')
+    require(not (inflight / 'workflow-wave.lock').exists(), 'unfinished-work')
     selected = receipt.get('selected_issues')
     cards = receipt.get('cards')
     require(isinstance(selected, list) and 0 < len(selected) <= 100 and
@@ -183,7 +181,7 @@ def prepare(config, receipt_path, cwd):
         'Product ownership/type/schema/guard/test changes are proposals for ordinary verified, curated '
         'Backlog intake, not calibration edits or automatically filed tickets. This preference does '
         'not widen the listed edit paths or bypass source verification and user curation.',
-        'Do not write rules or memory, edit wrappers, create a skill, change AGENTS.md or CLAUDE.md, '
+        'Do not write rules or memory, edit wrappers, create a skill, or change AGENTS.md '
         'or write outside the listed canonical files. Those destinations require a human approval proposal.',
         'If the host cannot honor this scope, report skipped rather than applying edits. Do not commit, push, '
         'install, publish, or schedule anything.',

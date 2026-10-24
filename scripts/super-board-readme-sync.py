@@ -3,7 +3,7 @@
 
     super-board-readme-sync.py           # rewrite README.md in place if stale
     super-board-readme-sync.py --check   # exit 1 if README.md is stale, write nothing
-    super-board-readme-sync.py --hook    # Claude Code PostToolUse: sync only when the
+    super-board-readme-sync.py --hook    # ZCode PostToolUse: sync only when the
                                          # edited file is under skills/; always exit 0
 
 Reads each skill's `name` and `description` frontmatter, groups skills by

@@ -3,8 +3,8 @@
 // the schema. Strip comments before validating an actual config file as JSON.
 //
 // One config per GitHub project this repo drives, written to
-// `.claude/super-board/configs/<slug>.json` (committed). The active
-// pointer `.claude/super-board/active` is gitignored and per-machine.
+// `.zcode/super-board/configs/<slug>.json` (committed). The active
+// pointer `.zcode/super-board/active` is gitignored and per-machine.
 
 {
   "version": 1,
@@ -24,19 +24,12 @@
   // card's label picks its lane — see `labels` below. Onboard's upgrade deletes a
   // leftover `variant`; the wave planner refuses "qa-only" until it is gone.
 
-  // Worker dispatch backend. "workflow" (default) drains waves in-session via
-  // the super-board-wave dynamic workflow (references/run-workflow.md);
-  // requires dynamic workflows enabled in /config. "claude-p" is the legacy
-  // headless dispatcher (.claude/bin/super-board-run.sh) — explicit opt-in
-  // only; the dispatcher refuses to run (exit 78) unless set here.
-  "worker_backend": "workflow",
-
-  // Agent host this project runs on: "claude" | "codex" | "opencode" | "zcode". Separate from
-  // worker_backend. Onboard and setup's fix ALWAYS write it (setup fills a missing key
-  // from --host and never replaces a set one); setup's check flags any other value.
+  // Agent host this project runs on: "zcode" (the only host this pack supports).
+  // Onboard and setup's fix ALWAYS write it (setup fills a missing key from
+  // --host and never replaces a set one); setup's check flags any other value.
   // `super-board-host.sh --config <this file>` uses it only when SUPER_BOARD_HOST and
-  // every env sign (Codex ids, OPENCODE, ZCODE_APP_VERSION, CLAUDECODE) are absent. See docs/hosts.md.
-  "host": "claude",
+  // the ZCODE_APP_VERSION env sign are absent. See docs/hosts.md.
+  "host": "zcode",
 
   // Optional post-completion adapter; never bundles or installs the external skill.
   // Runs only after selected work is verified merged and no work/approvals remain.
@@ -48,24 +41,8 @@
     // Otherwise use the installed SKILL.md path (repo-relative, absolute, or ~/...).
     "skill_path": null,
     // Explicit EXISTING canonical SKILL.md paths; no wrappers or symlink aliases.
-    // Empty/missing targets skip learning. AGENTS.md/CLAUDE.md/new skills still need approval.
+    // Empty/missing targets skip learning. AGENTS.md and new skills still need approval.
     "allowed_skill_paths": []
-  },
-
-  // Default model ladder for lane workers, indexed by card complexity from
-  // the classify router. Overridden per run by `super-board run --low|--high`.
-  //   "low"    — haiku (low) / sonnet (medium) / opus (high)
-  //   "medium" — (default) sonnet / opus / session model
-  //   "high"   — opus for every card
-  "model_tier": "medium",
-
-  // Optional Codex lane settings. Used by explicit `run --codex` and usage
-  // fallback; never selects the backend or grants Review/merge ownership.
-  "codex": {
-    // Optional model name passed to `codex exec -m` for every card, over the
-    // Codex ladder. `--codex=<model>` wins; absent/null lets the ladder pick
-    // (run tier x card grade, see scripts/super-board-codex-lane.sh).
-    "model": null
   },
 
   "target": {
@@ -118,7 +95,7 @@
   // "human" explicitly when every merge should require human approval.
   //
   // On the workflow backend, `false` ALSO requires
-  // "Bash(bash .claude/bin/super-board-merge-gate.sh:*)" and "Bash(gh pr merge:*)"
+  // "Bash(bash .zcode/bin/super-board-merge-gate.sh:*)" and "Bash(gh pr merge:*)"
   // in the session allowlist (onboard offers both as a diff) — without it every Reviewer stalls on an approval prompt
   // and nothing lands. See references/run-workflow.md → "Mid-run permission prompts".
   "human_approves_merge": false,
@@ -227,12 +204,6 @@
   // runaway this gate exists to catch. Default `6`.
   "no_progress_cycles": 6,
 
-  // LEGACY `claude-p` backend only — the workflow backend never reads it.
-  // Hard ceiling on total worker dispatches for one run; the loop halts with a
-  // runaway summary when it is reached. `0` disables the ceiling. Bounds
-  // worst-case spend even when a board trickles just enough Done movement to
-  // keep resetting `no_progress_cycles`. Default `0`.
-  "max_dispatches": 0,
 
   // Optional project-owned runtime comparison for Super QA/Review. No profile
   // runs unless this is set or the issue asks for it. Paths are repo-relative;
@@ -266,21 +237,6 @@
   // says loudly that nothing proved the result builds.
   //
   // A fresh worktree has no node_modules, so install as part of the command.
-  // Claude plan-usage guard (workflow backend). Before each wave the
-  // orchestrator runs super-board-usage.sh check; if the 5-hour or weekly
-  // window is at or above this percentage, no new wave launches until it
-  // resets. Default 95. See references/run-workflow.md → wave loop step 1.
-  // Explicit `run --codex` skips this Claude-only guard.
-  "usage_pause_pct": 95,
-
-  // What the orchestrator does while the usage guard pauses (exit 10).
-  //   "none"  — (default) launch nothing; wait for the reset.
-  //   "codex" — keep Build and QA moving one card at a time on Codex, headless
-  //             (super-board-codex-lane.sh without --codex). Review stays on
-  //             Claude: cards that reach Review wait there for the next Claude
-  //             wave. The launcher refuses a fallback lane without this value.
-  "usage_fallback": "none",
-
   // Required for Board dispatch and Board-controlled merges: at least one non-blank
   // project-owned command. Empty/missing lists halt with verification-readiness (exit 9).
   // NUL bytes in commands are rejected because shell extraction cannot preserve them.
@@ -301,7 +257,7 @@
   // planner picks every Ready card whose `## Blocked by` issues have all closed,
   // plus whatever is already in flight. The workflow runtime caps CONCURRENT
   // agents at min(16, cpus-2) and queues the rest, so a 19-card wave is normal.
-  // Codex waves also cap concurrent cards at a positive max_workers; absent/0
+  // The wave caps concurrent cards at a positive max_workers; absent/0
   // uses max(1, min(16, cpus-2)), with each card's lanes running sequentially.
   //
   // Set it only to deliberately throttle a machine. A fixed cap used to do the
@@ -396,7 +352,7 @@
     // skills/super-collect/scripts/collect_custom.py, turns the output into
     // candidates and sends them through the same verifier as every other source.
     //   name     — short slug; also what `sources` lists. Fingerprint custom|<name>|<key>.
-    //   kind     — "mcp" (an MCP server Claude Code has; the agent calls its read
+    //   kind     — "mcp" (an MCP server the workspace has; the agent calls its read
     //              tool), "http" (GET returning JSON), "cli" (a read-only command
     //              printing JSON or lines), "app" (a known app name resolved to
     //              one of the three at setup).

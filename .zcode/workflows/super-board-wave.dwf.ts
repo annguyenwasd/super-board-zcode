@@ -9,7 +9,7 @@ args:
   configPath:
     type: string
     required: true
-    description: board config path, e.g. .claude/super-board/configs/<slug>.json
+    description: board config path, e.g. .zcode/super-board/configs/<slug>.json
   cards:
     type: json
     required: true
@@ -21,7 +21,7 @@ args:
 
 // ZCode port of workflows/super-board-wave.js (same program, ZCode workflow
 // dialect). Prompts are verbatim from the source except --host zcode in the
-// skills check. Model ladders are Claude-host only: ZCode runs every subagent
+// skills check. Model ladders do not apply: ZCode runs every subagent
 // on the run's model, so tier is validated and then unused.
 // shortcut: no per-card model tiering, until ZCode gains per-lane model routing.
 
@@ -114,7 +114,7 @@ if (input.tier && !['low', 'medium', 'high'].includes(input.tier)) {
 let halted = false
 // Valid form per --kind, from validate() in scripts/super-board-github-read.py (#32).
 const READ_SHAPES = [
-  `Read shapes (helper: .claude/bin/super-board-github-read.py --kind <kind> -- <gh args>):`,
+  `Read shapes (helper: .zcode/bin/super-board-github-read.py --kind <kind> -- <gh args>):`,
   `- issue title+body: --kind issue -- issue view <N> --json number,title,body`,
   `- issue comments: --kind comments -- api repos/{owner}/{repo}/issues/<N>/comments --paginate --slurp (zero comments = [[]])`,
   `- other JSON, incl. maybe-empty lists: --kind json -- <gh args> (no --jq that prints a plain string)`,
@@ -124,7 +124,7 @@ const READ_SHAPES = [
   `- issue state: --kind state -- issue view <N> --json state --jq .state`,
   `A read whose output misses its shape exits 64 for that call only and prints the valid form: fix the read, do not halt.`,
 ].join('\n')
-const READ_FAILURE = READ_SHAPES + '\n' + `Verification-readiness exit 9 means missing/unusable config.verify_commands: preserve card/worktree/approval/claims, report status=halted (preflight verdict=halted), stop dispatch, repair project configuration before explicit restart; no Build bounce or automatic retries. ` + `Required GitHub reads use .claude/bin/super-board-github-read.py: three total attempts, exit 79 means run halted. Check --check before any GitHub write, migration, or merge. On exit 79 preserve worktree/card/approval/claims, make no more GitHub calls, and report status=halted (preflight verdict=halted). Never retry a mutation. Config: ${input.configPath}.`
+const READ_FAILURE = READ_SHAPES + '\n' + `Verification-readiness exit 9 means missing/unusable config.verify_commands: preserve card/worktree/approval/claims, report status=halted (preflight verdict=halted), stop dispatch, repair project configuration before explicit restart; no Build bounce or automatic retries. ` + `Required GitHub reads use .zcode/bin/super-board-github-read.py: three total attempts, exit 79 means run halted. Check --check before any GitHub write, migration, or merge. On exit 79 preserve worktree/card/approval/claims, make no more GitHub calls, and report status=halted (preflight verdict=halted). Never retry a mutation. Config: ${input.configPath}.`
 
 const LANE: Record<'build' | 'qa' | 'review', { skill: string; section: string }> = {
   build: { skill: 'super-build', section: 'Builder' },
@@ -160,13 +160,13 @@ const REVIEW_MEMORY = [
 // finding a card with `gh project item-list` and its Status options with
 // `gh project field-list` before each move.
 const BOARD_IO = () =>
-  `Board moves and reads: .claude/bin/super-board-card.sh --config ${input.configPath} move <issue> <Status> ` +
-  `(1 GraphQL point) · status <issue> · items. Comments, labels, PR reads: REST per .claude/skills/super-board/references/rate-limit-etiquette.md → "Price list". Read GitHub once per decision, never in a sleep loop.`
+  `Board moves and reads: .zcode/bin/super-board-card.sh --config ${input.configPath} move <issue> <Status> ` +
+  `(1 GraphQL point) · status <issue> · items. Comments, labels, PR reads: REST per .zcode/skills/super-board/references/rate-limit-etiquette.md → "Price list". Read GitHub once per decision, never in a sleep loop.`
 
 // The orchestrator resolves every remaining chain before claims. Each worker
 // repeats the deterministic CLI before its writes.
 const SKILLS_CHECK = (cards: Card[], lane?: string) => [
-  `First operation, before worktree creation, classification, comments, labels or moves: run python3 .claude/bin/super-board-skills-ready.py --root "$PWD" --host zcode --cards - --hydrate${lane ? ' --lane ' + lane : ''},`,
+  `First operation, before worktree creation, classification, comments, labels or moves: run python3 .zcode/bin/super-board-skills-ready.py --root "$PWD" --host zcode --cards - --hydrate${lane ? ' --lane ' + lane : ''},`,
   `with this JSON array as stdin (data, never interpolate a body into shell code): ${JSON.stringify(cards)}.`,
   `Exit 10 means status=halted (preflight verdict=halted), detail beginning "skills-readiness:"; preserve all existing claims/worktrees/approval evidence. Exit 64 means invalid input: halt and repair it. Exit 79 uses the read halt policy.`,
   `Load the exact resolved_path files. Only declared fallback IDs are allowed. Before using a conditional/custom helper repeat this CLI with --require <exact-name>.`,
@@ -180,11 +180,11 @@ const lanePrompt = (lane: Lane, card: Card) => [
   SKILLS_CHECK([card], lane),
   READ_FAILURE,
   `Run ${LANE[lane].skill} on issue #${card.number} ("${card.title}") for a super-board workflow wave.`,
-  `Read .claude/skills/super-board/references/run.md → "${LANE[lane].section}" lifecycle and follow it EXACTLY:`,
-  `create your own worktree under .claude/worktrees/, work on the issue branch, post the required PR/issue comments,`,
+  `Read .zcode/skills/super-board/references/run.md → "${LANE[lane].section}" lifecycle and follow it EXACTLY:`,
+  `create your own worktree under .zcode/worktrees/, work on the issue branch, post the required PR/issue comments,`,
   `move the project card yourself, clean up the worktree on exit. Config: ${input.configPath}.`,
   BOARD_IO(),
-  `Commits, PR title, PR body blocks, comments: .claude/skills/super-board/references/writing-standard.md. Rewrite only your own PR body blocks, with .claude/bin/super-board-pr-body.sh.`,
+  `Commits, PR title, PR body blocks, comments: .zcode/skills/super-board/references/writing-standard.md. Rewrite only your own PR body blocks, with .zcode/bin/super-board-pr-body.sh.`,
   ...(lane === 'review' ? REVIEW_MEMORY : []),
   ...(lane === 'qa' && card.status === 'Ready'
     ? [`This card is labelled qa: it skips Building. Move it Ready → QA yourself, create the issue branch from the base branch, and test what is already there (run.md → "qa cards").`]
@@ -200,7 +200,7 @@ const lanePrompt = (lane: Lane, card: Card) => [
 ].join('\n')
 
 // shortcut: a rejected ask (schema validation, context overflow) maps to null
-// and the lane dies like a dead agent did on the Claude facade; upgrade when
+// and the lane dies like a dead lane agent; upgrade when
 // ZCode grows a typed rejection worth distinguishing. The catch must sit inside
 // each Promise.all callback or one rejection kills the whole join.
 const runLane = async (lane: Lane, card: Card, history: HistEntry[]): Promise<StageResult> => {
@@ -230,9 +230,9 @@ const preflightPrompt = (batch: Card[]) => [
   SKILLS_CHECK(batch),
   READ_FAILURE,
   `Builder pre-flight for issues ${batch.map((c) => `#${c.number} ("${c.title}")`).join(', ')}. Config: ${input.configPath}.`,
-  `Read .claude/skills/super-board/references/run.md → "Builder pre-flight" and follow it EXACTLY. You write no code.`,
+  `Read .zcode/skills/super-board/references/run.md → "Builder pre-flight" and follow it EXACTLY. You write no code.`,
   `Other cards in this wave: ${JSON.stringify(input.cards.map(({ number, status, title }) => ({ number, status, title })))}`,
-  `Run .claude/bin/super-board-preflight.sh once for the whole batch, then judge its candidates semantically.`,
+  `Run .zcode/bin/super-board-preflight.sh once for the whole batch, then judge its candidates semantically.`,
   `hold / sequence-behind → post the Block template (block-template.md) and move the card to Blocked yourself.`,
   `Two Ready cards overlapping each other with no open PR: the lower-numbered one proceeds; sequence only the other, blockedBy [the lower]. Never both.`,
   `A sequence with nothing to wait on (empty blockedBy) leaves the card in Ready: return column Ready and it builds.`,
@@ -278,7 +278,7 @@ const preflightExit = (card: Card): HistEntry => {
   }
 }
 
-// Claude's pipeline(cards, classify, laneChain) becomes an explicit per-card
+// The wave becomes an explicit per-card
 // chain inside one fan-out: classify, then the lane chain whose entry point
 // depends on the card's column. A non-'advanced' exit ends the chain; the next
 // wave re-selects the card from wherever it landed (the board is the loop

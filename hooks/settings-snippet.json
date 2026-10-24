@@ -6,11 +6,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-worktree-path.py"
+            "command": "python3 \"${ZCODE_PROJECT_DIR}\"/.zcode/hooks/guard-worktree-path.py"
           },
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-delete-outside.py"
+            "command": "python3 \"${ZCODE_PROJECT_DIR}\"/.zcode/hooks/guard-delete-outside.py"
           }
         ]
       },
@@ -19,7 +19,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-secrets.py"
+            "command": "python3 \"${ZCODE_PROJECT_DIR}\"/.zcode/hooks/guard-secrets.py"
           }
         ]
       },
@@ -28,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-key-literals.py"
+            "command": "python3 \"${ZCODE_PROJECT_DIR}\"/.zcode/hooks/guard-key-literals.py"
           }
         ]
       }
@@ -39,7 +39,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-key-literals.py"
+            "command": "python3 \"${ZCODE_PROJECT_DIR}\"/.zcode/hooks/guard-key-literals.py"
           }
         ]
       }
@@ -49,7 +49,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd \"$CLAUDE_PROJECT_DIR\" && python3 .claude/hooks/cleanup-wt.py --auto --fetch 2>/dev/null || true"
+            "command": "cd \"${ZCODE_PROJECT_DIR}\" && python3 .zcode/hooks/cleanup-wt.py --auto --fetch 2>/dev/null || true"
           }
         ]
       }

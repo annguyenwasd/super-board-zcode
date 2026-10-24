@@ -1,6 +1,6 @@
 """Shared helpers for the super-collect fetchers. Stdlib only.
 
-- active_config(): the project's super-board config (`.claude/super-board/active`
+- active_config(): the project's super-board config (`.zcode/super-board/active`
   -> `configs/<slug>.json`), or the file named by --config.
 - secret(name): an env var, else the nearest `.env` / `.env.local` walking up
   from cwd. Only the named key is read; values are never printed.
@@ -33,7 +33,7 @@ def _find_up(rel):
 def active_config(path=None):
     """Return (config dict, path). Empty dict when no config is found."""
     if not path:
-        ptr = _find_up(os.path.join(".claude", "super-board", "active"))
+        ptr = _find_up(os.path.join(".zcode", "super-board", "active"))
         if ptr:
             with open(ptr) as f:
                 slug = f.read().strip()

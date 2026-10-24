@@ -87,9 +87,9 @@ REPO_FLAG=()
 
 BIN="${SUPER_BOARD_BIN:-}"
 if [ -z "$BIN" ]; then
-  # Installed: .claude/skills/super-collect/scripts → .claude/bin. Pack: skills/… → scripts/.
+  # Installed: .zcode/skills/super-collect/scripts → .zcode/bin. Pack: skills/… → scripts/.
   ROOT3=$(cd "$(dirname "$0")/../../.." 2>/dev/null && pwd)
-  for d in ".claude/bin" "$ROOT3/bin" "$ROOT3/scripts"; do
+  for d in ".zcode/bin" "$ROOT3/bin" "$ROOT3/scripts"; do
     [ -x "$d/super-qa-file-bug.sh" ] && { BIN="$d"; break; }
   done
 fi

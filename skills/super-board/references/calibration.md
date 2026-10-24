@@ -17,7 +17,7 @@ approval, Blocked card, partial delivery, or halt. An empty board with no landed
 work does not trigger calibration. Closed-as-not-planned cards are not merges.
 After confirming all waves/tasks ended, the host releases only its own native
 `workflow-wave.lock`, matching the run identity it saved at creation. Numeric
-lane locks, the native workflow marker, or a Codex wave marker still present
+lane locks or the native workflow marker still present
 mean unfinished work. An uncertain/other host's marker is preserved and learning
 is skipped; the adapter never clears or reaps markers.
 
@@ -58,19 +58,19 @@ From the project root, with `BOARD_CONFIG` naming the active JSON config and
 `RUN_RECEIPT` naming the completed receipt:
 
 ```bash
-python3 .claude/bin/super-board-calibration.py --config "$BOARD_CONFIG" --receipt "$RUN_RECEIPT"
+python3 .zcode/bin/super-board-calibration.py --config "$BOARD_CONFIG" --receipt "$RUN_RECEIPT"
 ```
 
 1. Read its JSON result. `skipped` reports the reason; do not install a missing
    skill, widen scope, or claim calibration ran. Product completion is unchanged.
 2. On `ready`, use the current host's normal delegation tool to start one separate
    learning task with the returned `brief`. The same host that supervises workflow
-   or explicit Codex waves supplies this tool. No new model launcher is required.
+   supplies this tool. No new model launcher is required.
    If delegation is unavailable, report skipped/unavailable.
 3. The learner follows the external skill's own learning process, confined to
    the supplied current-run evidence. It may automatically improve only the
    listed existing canonical skill files. No global chat search, memory/rules
-   writes, wrapper edits, or new skills. AGENTS.md, CLAUDE.md, new skills and all
+   writes, wrapper edits, or new skills. AGENTS.md, new skills and all
    unlisted destinations remain proposals requiring human approval.
    For recurring mistakes, use [correction prevention](../../super-collect/references/correction-prevention.md).
    Prefer a fitting structural correction before reminders. Product ownership/type/schema/guard/test
@@ -86,15 +86,15 @@ python3 .claude/bin/super-board-calibration.py --config "$BOARD_CONFIG" --receip
 
 `skill_path` can name an installed SKILL.md explicitly (repo-relative, absolute,
 or `~/...`). If unset, discovery checks only `calibrate/SKILL.md` in the project's
-`.agents/skills/` and `.claude/skills/`, then known user `.agents/skills/`,
-`.claude/skills/` and `.codex/skills/` roots. It does not scan other workspaces.
+`.agents/skills/` and `.zcode/skills/`, then known user `.agents/skills/`,
+`.zcode/skills/` roots. It does not scan other workspaces.
 An invocation wrapper can lead to its installed canonical instructions; edit
 targets must already be the canonical files, with no wrappers or symlink aliases.
 The explicit list is capped at 20 files. Nothing is edited by the adapter itself.
 
 ## Legacy headless runs
 
-An unsupervised `claude-p` runner reports calibration skipped: it has no host
+An unsupervised runner reports calibration skipped: it has no host
 that can invoke an installed skill. Do not launch a new unconfigured provider or
 interpret the runner's clean exit as verified completion. A supervising host can
 perform the same final reconciliation, prepare the receipt and delegate afterward.

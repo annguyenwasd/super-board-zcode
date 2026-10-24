@@ -92,9 +92,9 @@ def git_state(root: Path, base: str | None) -> dict:
 def plan_candidates(root: Path | None) -> list[dict]:
     now = time.time()
     found: list[tuple[float, Path]] = []
-    dirs = [Path.home() / ".claude" / "plans"]
+    dirs = [Path.home() / ".zcode" / "plans"]
     if root:
-        dirs += [root, root / "docs", root / "plans", root / ".claude" / "plans", root / "specs"]
+        dirs += [root, root / "docs", root / "plans", root / ".zcode" / "plans", root / "specs"]
     for d in dirs:
         if not d.is_dir():
             continue
@@ -557,11 +557,11 @@ def cmd_skillmap(a) -> None:
         skills[name] = {"dir": md.parent, "md": md, "text": text, "fm": fm}
     # skills installed beside the pack's host repo count as known dependencies
     ext_md: dict[str, Path] = {}  # name -> SKILL.md of skills installed beside the pack
-    for d in (top_p / ".agents" / "skills", top_p / ".claude" / "skills", Path.home() / ".claude" / "skills"):
+    for d in (top_p / ".agents" / "skills", top_p / ".zcode" / "skills", Path.home() / ".zcode" / "skills"):
         if d.is_dir():
             for p in sorted(d.glob("*/SKILL.md")):
                 ext_md.setdefault(p.parent.name, p.resolve())
-    plugins = Path.home() / ".claude" / "plugins"
+    plugins = Path.home() / ".zcode" / "plugins"
     if plugins.is_dir():  # plugin skills: <plugins>/**/skills/<name>/SKILL.md
         for p in sorted(plugins.glob("**/skills/*/SKILL.md")):
             ext_md.setdefault(p.parent.name, p.resolve())
@@ -573,7 +573,7 @@ def cmd_skillmap(a) -> None:
         if m:
             return m[1] + " plugin"
         m = re.search(r"/vendor/([^/]+)/", p)
-        return m[1] if m else ("~/.claude/skills" if p.startswith(str(Path.home() / ".claude")) else "repo skills")
+        return m[1] if m else ("~/.zcode/skills" if p.startswith(str(Path.home() / ".zcode")) else "repo skills")
 
     def ext_mentions(text: str, own: str) -> set[str]:
         found = {d.split(":", 1)[1] for d in re.findall(r"`([a-z][\w-]*:[a-z][\w-]*)`", text)}
@@ -681,7 +681,7 @@ def cmd_skillmap(a) -> None:
         for event, groups in cfg.items():
             eid = "event:" + event
             add_node({"id": eid, "label": event, "kind": "hook", "verbs": [],
-                      "what": f"Claude Code {event} event", "when": "Every matching tool call",
+                      "what": f"ZCode {event} event", "when": "Every matching tool call",
                       "how": "", "source": rel(snip)})
             hook_ids.append(eid)
             for g in groups:

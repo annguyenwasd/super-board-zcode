@@ -21,10 +21,10 @@ setup() {  # $1 = verify_commands JSON array
   printf '#!/usr/bin/env bash\nexit 1\n' > "$TMP/bin/gh"
   chmod +x "$TMP/bin/gh"
   export PATH="$TMP/bin:$PATH"
-  mkdir -p "$TMP/.claude/super-board/inflight"
+  mkdir -p "$TMP/.zcode/super-board/inflight"
   printf '{"base_branch":"staging","repo":{"path":"%s","remote":"https://github.com/x/y.git"},"verify_commands":%s}' \
     "$TMP" "${1:-[\"git diff --check\"]}" > "$TMP/c.json"
-  LOCK="$TMP/.claude/super-board/inflight/merge.lock"
+  LOCK="$TMP/.zcode/super-board/inflight/merge.lock"
 }
 teardown() { rm -rf "$TMP"; }
 
@@ -225,9 +225,9 @@ teardown
 #      --post-merge --base <base> after a merge, and its failure never fails the
 #      merge that already happened.
 head_setup
-mkdir -p "$TMP/.claude/hooks"
+mkdir -p "$TMP/.zcode/hooks"
 printf 'import sys\nopen("%s/cleanup.args","w").write(" ".join(sys.argv[1:]))\nsys.exit(1)\n' "$TMP" \
-  > "$TMP/.claude/hooks/cleanup-wt.py"
+  > "$TMP/.zcode/hooks/cleanup-wt.py"
 RC=0; STUB_OID="$SHA" gate --expect-head "$SHA" >/dev/null 2>&1 || RC=$?
 [ "$RC" -eq 0 ] || fail "a failing cleanup must not fail the merge, got $RC"
 grep -q -- "--post-merge --base staging" "$TMP/cleanup.args" 2>/dev/null \
@@ -236,8 +236,8 @@ teardown
 
 # 13 — a refused merge never cleans up. (Scenario 9 is the no-cleanup-wt path.)
 head_setup
-mkdir -p "$TMP/.claude/hooks"
-printf 'open("%s/cleanup.ran","w")\n' "$TMP" > "$TMP/.claude/hooks/cleanup-wt.py"
+mkdir -p "$TMP/.zcode/hooks"
+printf 'open("%s/cleanup.ran","w")\n' "$TMP" > "$TMP/.zcode/hooks/cleanup-wt.py"
 RC=0; STUB_OID="$SHA" STUB_MERGE_RC=1 gate --expect-head "$SHA" >/dev/null 2>&1 || RC=$?
 [ "$RC" -eq 79 ] || fail "an unconfirmed merge should halt, got $RC"
 [ ! -f "$TMP/cleanup.ran" ] || fail "cleanup must not run when the merge was refused"

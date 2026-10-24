@@ -65,7 +65,7 @@ Tokens (classic) → Generate new token (classic). Expiry: **30 days**.
 DON'T tick everything. A real run included `delete_repo` and `admin:enterprise` — far too much.
 Missing `read:org` fails with `missing required scope 'read:org'`.
 
-Run this yourself in the **Claude Code prompt**, replacing `<token>` locally:
+Run this yourself in the **ZCode prompt**, replacing `<token>` locally:
 
 ```text
 ! echo <token> | gh auth login --with-token

@@ -46,7 +46,7 @@ worker memory creep:
 3. **Judgment calls use the decision ladder, not a panel.** Walk
    acceptance criteria → repo precedent → smallest blast radius → human gate
    and stop at the first rung that answers the question:
-   `.claude/skills/super-build/references/decision-policy.md`. The one
+   `.zcode/skills/super-build/references/decision-policy.md`. The one
    technical check that still runs is `mattpocock-skills:code-review` against
    a concrete diff, with the merge-base passed as the fixed point.
 4. **Per-iteration cap: 30 screenshots.** Re-use steps between TCs that share
@@ -317,14 +317,14 @@ acceptable; a fix can silently disable a feature to make a wrong spec pass.
    ```
 
    PR body = the marker blocks of writing-standard.md § 2
-   (`.claude/bin/super-board-pr-body.sh --skeleton`): status card with
+   (`.zcode/bin/super-board-pr-body.sh --skeleton`): status card with
    `Closes #${ISSUE_N}`, Problem (the failing assertion / signal type, lettered
    steps, screenshot), Solution (plain bullets), Acceptance criteria with proof
    lines, Iteration history, Risk (🟢/🟡/🔴 + Door + Blast radius — subjective
    signals are never 🟢).
    Forensics excerpts go in the proof lines, not as file lists.
    After opening the PR and after each later push, follow
-   `.claude/skills/super-board/references/pr-author-notes.md`: one file-level review
+   `.zcode/skills/super-board/references/pr-author-notes.md`: one file-level review
    comment per changed file and a few critical inline notes, with Purpose, What changed,
    and Why it matters. Confirm them before handing the PR to review.
 
@@ -601,7 +601,7 @@ detection (do NOT batch at end of iter):
 
 1. **Write the issue body** to a temp file, e.g.
    `/tmp/super-qa-iter-${N}-bug-${slug}.md`, in the ticket format of
-   `.claude/skills/super-board/references/writing-standard.md` § 3 — enough
+   `.zcode/skills/super-board/references/writing-standard.md` § 3 — enough
    context for a future headless session to fix it without rediscovery. The
    filer refuses a body that misses a section:
    - `## Problem` — 1–3 sentences: what is wrong and where.

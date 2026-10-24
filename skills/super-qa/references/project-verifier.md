@@ -16,8 +16,8 @@ This optional helper adds repeatable feature checks inside existing lanes.
 3. Adapt `../templates/project-verifier/SKILL.md` and `feature-map.json` into
    `.agents/skills/verify-<app>/`. Write real project-owned scenarios and a runner
    beside it. Use the app's installed runner; browser/dependency installs and DB
-   initialization remain separate project decisions. Where supported, Claude
-   may use a relative `.claude/skills/verify-<app>` compatibility link.
+   initialization remain separate project decisions. Where supported, the host
+   may use a relative `.zcode/skills/verify-<app>` compatibility link.
 4. Stage the files for Onboard's existing step-8 Save. List them in its review;
    write only with that save authorization. Keep `verify_commands` independent:
    a map does not turn browser work into every PR's required merge check.
@@ -31,9 +31,9 @@ Onboard reports `starter, not run` until actual scenarios run with proof.
 ## Map inspection and selection
 
 ```bash
-python3 .claude/bin/super-board-project-verifier.py inspect \
+python3 .zcode/bin/super-board-project-verifier.py inspect \
   --root . --map .agents/skills/verify-app/references/feature-map.json
-python3 .claude/bin/super-board-project-verifier.py select \
+python3 .zcode/bin/super-board-project-verifier.py select \
   --root . --map .agents/skills/verify-app/references/feature-map.json \
   --changed - --feature cart.checkout
 ```
@@ -72,7 +72,7 @@ verifier cannot run, keep its ACs unverified until another valid check proves
 them. Resolve its skill for the current host before loading it, for example:
 
 ```bash
-python3 .claude/bin/super-board-skills-ready.py --root . --host codex \
+python3 .zcode/bin/super-board-skills-ready.py --root . --host zcode \
   --cards cards.json --lane qa --require verify-app
 ```
 

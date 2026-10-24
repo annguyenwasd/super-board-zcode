@@ -9,7 +9,7 @@ Everyone reads the **taste and direction file** named in the prompt first. It ho
 This is Impeccable critique's Assessment A, minus its ceremony.
 
 1. **Playbook.** With `impeccable`, read `critique.md` (Assessment A only) and `craft-floor.md` from the playbooks folder in your prompt. Skip the live overlay, storage, "Ask the User" and "Recommended Actions". With `rubric`, read [`rubric.md`](rubric.md) §1.
-2. **Look at everything.** Read every image in the prompt: the round-0 shots, the current shots, the before | after sheets and the section crops. That covers light and dark at desktop 1440 and mobile 390. Then read the source files in scope. Judge the brief first, the taste file second and generic craft third. If the repo documents a page-composition rule (`CLAUDE.md`, `AGENTS.md`, `docs/`), breaking it is a problem. Need another state, such as a dialog open? Run the screenshot command in your prompt, one browser at a time.
+2. **Look at everything.** Read every image in the prompt: the round-0 shots, the current shots, the before | after sheets and the section crops. That covers light and dark at desktop 1440 and mobile 390. Then read the source files in scope. Judge the brief first, the taste file second and generic craft third. If the repo documents a page-composition rule (`AGENTS.md`, `docs/`), breaking it is a problem. Need another state, such as a dialog open? Run the screenshot command in your prompt, one browser at a time.
 3. **Score the visual quality** 0–4 per dimension (4 is genuinely excellent; most real surfaces land at 2–3):
    - `specificity`: does it look like this product, or could any product ship it unchanged?
    - `hierarchy`: does the eye land on the primary task or figure first?

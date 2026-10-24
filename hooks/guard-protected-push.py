@@ -5,14 +5,14 @@ Opt-in. `super-board onboard` asks once ("Block direct/force pushes to main?") a
 `install.sh --protect-main` wires it. Lanes push feature branches and merge through
 `super-board-merge-gate.sh` (`gh pr merge`), so nothing in the loop needs to push a base.
 
-Protected: main, master, every `base_branch` in .claude/super-board/configs/*.json, and
+Protected: main, master, every `base_branch` in .zcode/super-board/configs/*.json, and
 any name in SB_PROTECTED_BRANCHES (comma-separated). A `git push` is denied when it would
 update or delete one of them: an explicit refspec (`feat:main`, `+main`, `HEAD:refs/heads/main`,
 `--delete main`), `--all` / `--mirror`, or a bare `git push` / `git push origin HEAD` while the
 protected branch is checked out. Force flags (`-f`, `--force`, `--force-with-lease`) are named in
 the reason; force pushes to feature branches stay allowed (the rebase pass needs them).
 
-SB_ALLOW_PROTECTED_PUSH=1 in Claude Code's environment turns it off for a session.
+SB_ALLOW_PROTECTED_PUSH=1 in ZCode's environment turns it off for a session.
 Its own errors never block a tool call: anything unexpected exits 0 with no output.
 """
 import glob
@@ -132,7 +132,7 @@ def current_branch(d):
 
 def protected_branches(project_dir):
     names = {"main", "master"}
-    for p in glob.glob(os.path.join(project_dir, ".claude", "super-board", "configs", "*.json")):
+    for p in glob.glob(os.path.join(project_dir, ".zcode", "super-board", "configs", "*.json")):
         try:
             base = json.load(open(p)).get("base_branch")
             if isinstance(base, str) and base:
@@ -175,7 +175,7 @@ def check(command, cwd, protected, branch_of):
                 "(super-board-merge-gate.sh). Push a feature branch and open a PR instead:\n"
                 "  git push -u origin <feature-branch>\n"
                 "Protected here: %s. If this push really is intended, ask the user to run it, "
-                "or start Claude Code with SB_ALLOW_PROTECTED_PUSH=1." % (kind, hit, ", ".join(sorted(protected)))
+                "or start ZCode with SB_ALLOW_PROTECTED_PUSH=1." % (kind, hit, ", ".join(sorted(protected)))
             )
     return None
 
@@ -189,7 +189,7 @@ def main():
         if not isinstance(command, str):
             return
         cwd = payload.get("cwd") or os.getcwd()
-        project = os.environ.get("CLAUDE_PROJECT_DIR") or cwd
+        project = os.environ.get("ZCODE_PROJECT_DIR") or cwd
         reason = check(command, cwd, protected_branches(project), current_branch)
         if reason:
             print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse",

@@ -91,28 +91,10 @@ def test_standard_examples_are_valid_subjects():
     assert seen >= 1, "expected a commit example in writing-standard.md"
 
 
-def test_dispatcher_greps_the_standard_loop_subjects():
-    src = (ROOT / "skills" / "super-build" / "scripts" / "super-build-dispatch.sh").read_text(encoding="utf-8")
-    pats = re.findall(r'grep -E "\^\[0-9a-f\]\+ (.*?)" \| head', src)
-    assert len(pats) == 2, f"expected the close and wip greps, found {pats}"
-    close_pat, wip_pat = (p.replace("$N", "42").replace("\\\\", "\\") for p in pats)
-
-    def grep(pat: str, subject: str) -> bool:
-        r = subprocess.run(["grep", "-E", "^[0-9a-f]+ " + pat], input=f"abc123 {subject}\n",
-                           capture_output=True, text=True)
-        return r.returncode == 0
-
-    assert grep(close_pat, "🔧 [chore] loop: close #42 — add streaming")
-    assert not grep(close_pat, "🔧 [chore] loop: close #421 — other card")
-    assert grep(wip_pat, "🚧 [wip] loop: #42 partial — schema only")
-    assert grep(close_pat, "chore(loop): close #42 — legacy branch")
-
-
 def test_no_old_commit_shapes_in_templates():
     old = re.compile(r"chore\(loop\)|wip\(loop\)|fix\(super-qa\)|feat\(super-qa\)|refine\(\$?\{?[a-z<]")
-    allowed = {"super-build-dispatch.sh"}  # documents and still accepts the legacy shapes
-    for p in list((ROOT / "skills").rglob("*.md")) + list((ROOT / "skills").rglob("*.sh")) + list((ROOT / "workflows").glob("*.js")):
-        if p.name in allowed or "visual" in p.parts:
+    for p in list((ROOT / "skills").rglob("*.md")) + list((ROOT / "skills").rglob("*.sh")):
+        if "visual" in p.parts:
             continue
         for n, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
             assert not old.search(line), f"old commit shape at {p.relative_to(ROOT)}:{n}: {line.strip()}"

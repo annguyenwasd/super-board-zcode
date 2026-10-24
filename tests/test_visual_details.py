@@ -17,7 +17,7 @@ if not binary:
     print("SKIP: test_visual_details.py (no Chrome)")
     sys.exit(0)
 
-model = copy.deepcopy(json.loads((pack / "diagrams" / "skill-map.json").read_text()))
+model = copy.deepcopy(json.loads((pack / "tests" / "fixtures" / "skill-map.json").read_text()))
 model["kind"] = "map"
 nodes = [*model["nodes"], *(n for v in model["views"] for n in v.get("nodes", []))]
 # The seam being tested is prose -> detail list. One edge-free probe view isolates it

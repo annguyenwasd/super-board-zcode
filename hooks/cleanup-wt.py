@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """cleanup-wt -- remove worktrees and branches whose work is already on a base branch.
 
-A hook, not a user skill: installed at .claude/hooks/cleanup-wt.py, run by
+A hook, not a user skill: installed at .zcode/hooks/cleanup-wt.py, run by
 super-board-merge-gate.sh after each merge (--post-merge) and by the default SessionStart
 hook (--auto). A manual dry run (no flags) still works for a one-off look.
 
@@ -41,7 +41,7 @@ import sys
 import time
 
 KEEP, REMOVE, REVIEW = "KEEP", "REMOVE", "REVIEW"
-ALLOWED_DIR = os.path.join(".claude", "worktrees")
+ALLOWED_DIR = os.path.join(".zcode", "worktrees")
 FRESH_SECS = 24 * 3600
 ALWAYS_PROTECTED = {"main", "master", "HEAD"}
 EXTRA_BASES = ["staging", "develop", "dev"]
@@ -259,7 +259,7 @@ def classify_local(f, protected, force=False, auto=False):
         return {"bucket": REMOVE, "reason": "merged: " + f["merged"], "remove_worktree": bool(wt),
                 "wip": False, "delete_branch": bool(f["branch"])}
     if wt and (wt["stray"] or force):
-        why = "outside .claude/worktrees/" if wt["stray"] else "unmerged, --force"
+        why = "outside .zcode/worktrees/" if wt["stray"] else "unmerged, --force"
         save = dirty or not f["branch"]  # a detached HEAD gets a branch so its commits stay reachable
         return {"bucket": REMOVE, "reason": "%s -- remove folder, keep branch%s" % (why, " (wip-commit first)" if dirty else ""),
                 "remove_worktree": True, "wip": save, "delete_branch": False}
@@ -469,7 +469,7 @@ def bases_moved(ctx, names):
 
 
 def hook_event():
-    """The hook event this run serves, from Claude Code's stdin JSON; None when run by hand."""
+    """The hook event this run serves, from ZCode's stdin JSON; None when run by hand."""
     if sys.stdin.isatty():
         return None
     try:

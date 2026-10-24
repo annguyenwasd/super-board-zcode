@@ -16,7 +16,7 @@ column each card is in.
 | **What you get** | Merged PRs with evidence: screenshots, test reruns, review findings on the PR |
 | **How you start** | `/super-board run <slug>`, then drag cards into `Ready` |
 | **What holds state** | The board. Cards pick up from their column after any stop |
-| **Backend** | In-session dynamic workflow waves by default; headless `claude -p` on opt-in |
+| **Backend** | In-session dynamic workflow waves (`.zcode/workflows/super-board-wave.dwf.ts`) |
 
 ## Workflow at a glance
 
@@ -52,7 +52,7 @@ merge with a hand-off; a card labelled `qa` skips Building.
 | 2 | 🔑 GitHub | Signs in and adds board access (`gh auth refresh -s project,read:project,repo`) only when missing; offers to create the repo. |
 | 3 | 🗂️ Board | Ranks your GitHub Projects by matching columns and recommends reusing the best (adds what is missing, keeps cards), or creates one with a name taken from package.json / README. |
 | 4 | 🌿 Branch | Finds branches and the deploy source; no staging → "Create staging from main" (Recommended). |
-| 5 | 📜 AGENTS.md | "Move your N CLAUDE.md rules into AGENTS.md?" — one short question per conflict, nothing lost (coverage-checked). |
+| 5 | 📜 AGENTS.md | "Move your N rules into AGENTS.md?" — one short question per conflict, nothing lost (coverage-checked). |
 | 6 | 🛡️ Policies | Two questions: safe defaults (merge rule, push guard, migrations), and the permission lines. |
 | 7 | 📥 Bug sources | Sentry, PostHog, GitHub issues, past PRs, architecture, plus "➕ Add another source": a link, app, API URL, MCP server or command, pinged read-only before it is saved. |
 | 8 | ✅ Review | One compact table, then "Write everything?" — files change once, here. |
@@ -69,19 +69,19 @@ card dropped on purpose is closed as not planned and moved to Done with a 🤷 c
 
 ## Setup notes
 
-- Needs Claude Code, `gh` (authenticated for the board's owner), `jq`, bash 3.2+ and Python 3.
+- Needs ZCode, `gh` (authenticated for the board's owner), `jq`, bash 3.2+ and Python 3.
 - Or install from a checkout: `./install.sh [--no-hooks] [--protect-main] /path/to/your-project`.
 - The board is a GitHub Project (v2) with a `Status` field: `Backlog, Ready, Building, QA, Review, Blocked, Done`. `onboard` reuses your best-matching board (adding what is missing, keeping every card) or creates one.
 - Three labels route cards: `qa` skips Building (test what exists), `bug` and `feature` are built first; no label is built too.
-- Default backend is in-session dynamic workflows: turn them on in `/config`. Headless `claude -p` is opt-in (`worker_backend: "claude-p"`).
+- The run loop is in-session dynamic workflow waves; ZCode typechecks the workflow at launch.
 - Set `verify_commands` in the config. Without them the merge gate cannot prove the result builds, and says so.
-- `onboard` fixes what the board needs without asking (skills, scripts, workflows, guards, settings, old folders, config keys) and asks only to install a system tool or sign in. An older super-board is upgraded in place (see [Upgrading from 2.x](../../RELEASE-NOTES.md#upgrading-from-2x)).
+- `onboard` fixes what the board needs without asking (skills, scripts, workflows, guards, hook entries, old folders, config keys) and asks only to install a system tool or sign in. An older super-board is upgraded in place (see [Upgrading from 2.x](../../RELEASE-NOTES.md#upgrading-from-2x)).
 - `onboard` asks once what the robot may do: auto-merge normal changes up to 400 changed lines (money, auth, destructive schema like DROP/TRUNCATE/RENAME, and bigger PRs wait for you; additive migrations run only on the databases you allow, never live), protect main, and which databases it may migrate (default test + staging). Anything only you may run lands in Blocked tagged 🙋 with the exact command; comment `done` and the next wave merges.
-- Auto-merge needs the merge-gate and `gh pr merge` lines in your allowlist; `onboard` offers them as a diff.
-- `onboard` can make AGENTS.md the source of truth (CLAUDE.md becomes `@AGENTS.md`) and keeps a managed super-board section in it. Plugin install: the command is `/super-board:super-board onboard`, and its 🔍 Checks step installs the missing scripts, workflows and hooks.
+- Auto-merge needs a session permission mode that does not pause on `gh pr merge` (run-workflow.md → "Mid-run permission prompts").
+- `onboard` can make AGENTS.md the source of truth and keeps a managed super-board section in it. The command is `/super-board onboard`; its 🔍 Checks step installs the missing scripts, workflows and hooks.
 - Bug sources take any extra source in onboard — a link, app name, API URL, MCP server or command — proven readable (read-only) before it is saved; `/super-collect` runs it like the built-ins.
 - Testing a live site with no repo is not a board: `/super-qa <url>` runs on its own.
-- To enable the usage check, add `printf '%s' "$input" | bash <repo>/.claude/bin/super-board-usage.sh record` to your status-line script.
+- To enable the usage check, add `printf '%s' "$input" | bash <repo>/.zcode/bin/super-board-usage.sh record` to your status-line script.
 - Cards need acceptance criteria: QA grades against them, and `lint` tells you which are missing.
 
 ## Skills
@@ -97,21 +97,9 @@ card dropped on purpose is closed as not planned and moved to Done with a 🤷 c
 | `/git-sync` | Secondary helper: commit per logical change, merge-pull, push without force. |
 | `/visual` | Secondary helper: a visual recap or plan. Merged-worktree cleanup is a hook (`hooks/cleanup-wt.py`): the merge gate runs it after each merge and SessionStart runs it when a base moved. |
 
-## Backends
-
-Lane lifecycles are identical in both.
-
-| | `workflow` (default since 1.6.0) | `claude-p` (opt-in) |
-|---|---|---|
-| Runs as | in-session dynamic workflow waves | headless `claude -p` workers |
-| Needs | dynamic workflows on in `/config` | nothing extra |
-| Reference | `skills/super-board/references/run-workflow.md` | `scripts/super-board-run.sh` |
-
-The legacy dispatcher refuses to run (exit 78) unless the config sets it.
-
 **Stop and resume.** `/super-board stop` posts a "stopped mid-flight" comment on every in-flight
-issue and PR (lane, last commit, resume hint), releases the assignee mutex, and kills workers and
-the dispatcher. Resume with `/super-board run <slug>`. A card stranded in `Building` by a stopped
+issue and PR (lane, last commit, resume hint), releases the assignee mutex, and cancels the wave.
+Resume with `/super-board run <slug>`. A card stranded in `Building` by a stopped
 wave goes back to `Ready`; its branch is kept and the next Builder continues on it.
 
 ## How a wave runs
@@ -188,12 +176,12 @@ Review run in parallel.
 
 ## Safety controls
 
-**Worker storms**, 30 `Ready` cards starting 30 Builders, were the failure that bit early users of
-the headless backend. On `claude-p`, six gates stand in the way before any spawn:
+**Worker storms**, 30 `Ready` cards starting 30 Builders, were the failure that bit early users.
+Gates stand in the way before any lane launch:
 
 ```
   1  orphan scan ........... workers alive from a crashed run?  → refuse to start
-  2  in-flight lockfile .... .claude/super-board/inflight/<N>   → skip (survives restart)
+  2  in-flight lockfile .... .zcode/super-board/inflight/<N>   → skip (survives restart)
   3  assignee claim ........ atomic, BEFORE spawn               → skip (closes the cold-start race)
   4  worker cap ............ max_workers (default 3)            → wait
   5  GraphQL quota <200 .... sleep until reset                  → wait
@@ -207,7 +195,7 @@ crash-recovery sweep of leaked assignees, the rate guard and the usage guard
 (`references/run-workflow.md`).
 
 Guard hooks, installed by `install.sh` unless `--no-hooks`: worktrees only under
-`.claude/worktrees/`, no reading of secret files, no API keys written into source, no deleting
+`.zcode/worktrees/`, no reading of secret files, no API keys written into source, no deleting
 outside the project, and merged-worktree cleanup at session start. Blocking direct and force pushes
 to the base branch is opt-in (`onboard` asks once, or `install.sh --protect-main`). See
 `hooks/README.md`.
@@ -235,7 +223,7 @@ the robot runs them on the databases you allowed. A live database is always your
 
 ## Configuration
 
-Minimal config at `.claude/super-board/configs/<slug>.json`:
+Minimal config at `.zcode/super-board/configs/<slug>.json`:
 
 ```json
 {
@@ -250,16 +238,13 @@ Minimal config at `.claude/super-board/configs/<slug>.json`:
 ```
 
 ```
-  worker_backend        workflow | claude-p
   columns               Backlog · Ready · Building · QA · Review · Blocked · Done (always all seven)
   human_approves_merge  legacy: true = never auto-merge (prefer merge_policy.default "human")
   merge_policy          default auto|human · auto_max_lines (400) · size_exclude · always_human {money, auth, schema}
   migrations            globs · allowed_envs (test, staging, live) · target_env · commands
   verify_commands       run by the merge gate against the current base before every merge
   rebuild_cap           bounces allowed before a card goes Blocked
-  max_workers           optional wave throttle; absent or 0 = unlimited (claude-p defaults to 3)
-  tick_seconds          claude-p GraphQL budget floor, default 120
-  usage_pause_pct       pause new waves at this % of the Claude usage window, default 95
+  max_workers           optional wave throttle; absent or 0 = unlimited
   refine, collect       optional blocks for ui-refine-loop and super-collect (collect.custom = extra sources)
 ```
 
@@ -316,8 +301,7 @@ Missing, unreadable or stale evidence is a hold for a person, never a pass.
 ## Limits
 
 - `gh` auth and CI come from you. Onboard reuses or creates the board and its columns and labels; it never signs in or installs a system tool without your OK.
-- The workflow backend needs dynamic workflows enabled in Claude Code.
-- The usage guard reads only what an interactive status line recorded; headless runs see no usage.
+- The run loop needs the Workflow tool available in the ZCode session.
 - `verify_commands` are only as good as your test suite. Without them the gate says it proved nothing.
 - Lanes call [mattpocock/skills](https://github.com/mattpocock/skills) by name; without that pack a worker fails when it reaches for one.
 - `bash` 3.2+ (stock macOS is fine), `jq` and Python 3 are required on the machine running the loop.
@@ -326,13 +310,11 @@ Missing, unreadable or stale evidence is a hold for a person, never a pass.
 
 ```
   skills/<name>/   SKILL.md (agent prompt) · README.md · references/ · scripts/
-  workflows/       super-board-wave.js, ui-refine-loop.js
-  scripts/         dispatcher, planner, merge gate, usage check, filers, README sync
-  hooks/           guard hooks, cleanup-wt, settings snippets; dev/ = skill-eval gate (never installed)
+  .zcode/workflows/  super-board-wave.dwf.ts, ui-refine-loop.dwf.ts
+  scripts/         planner, merge gate, filers, README sync, setup
+  hooks/           guard hooks, cleanup-wt, settings snippets
   tests/           bash/python tests, no network: bash tests/test-*.sh
-  evals/           behavioural evals for `claude plugin eval` (evals/README.md)
 ```
 
-The minimal `.claude-plugin/plugin.json` exists so `claude plugin eval` can load the pack;
-`install.sh` stays the install path. The full lane-to-skill mapping, including the skills kept
+`install.sh` is the install path. The full lane-to-skill mapping, including the skills kept
 because Matt's pack has no equivalent, is in `skills/super-build/references/decision-policy.md`.

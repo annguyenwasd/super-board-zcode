@@ -53,7 +53,7 @@ def halt_path():
     cwd = Path(os.environ.get('SB_REPO_PATH') or Path.cwd())
     common = Path(result.stdout.strip())
     root = (cwd / common).resolve().parent if result.returncode == 0 else cwd
-    return root / '.claude/super-board/github-halt.json'
+    return root / '.zcode/super-board/github-halt.json'
 
 
 def check_halt():

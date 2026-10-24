@@ -34,7 +34,7 @@
 # The previous mutex lived in the wave workflow as a JS promise chain, which
 # serialised the WHOLE Review lane — reading the diff, rerunning the suite and
 # the truth-check all queued behind one card, not just the merge. It also could
-# not be seen by the `claude-p` backend or by a second orchestrator on another
+# not be seen by a second orchestrator on another
 # machine. `mkdir` is atomic on every POSIX filesystem, so the lock is visible to
 # anything that can see the repo.
 #
@@ -162,7 +162,7 @@ if [ "${#VERIFY[@]}" -eq 0 ]; then
 fi
 python3 "$GITHUB_READ" --check
 
-LOCK_DIR="${REPO_PATH}/.claude/super-board/inflight/merge.lock"
+LOCK_DIR="${REPO_PATH}/.zcode/super-board/inflight/merge.lock"
 mkdir -p "$(dirname "$LOCK_DIR")"
 
 say() { echo "[merge-gate #${PR}] $*" >&2; }
@@ -356,8 +356,8 @@ if gh pr merge "$PR" ${REPO:+--repo "$REPO"} --squash --delete-branch \
   # Post-merge tidy-up: drop worktrees and local branches the merge just made
   # redundant. Optional (only when the cleanup-wt hook is installed), local-only, and it
   # can never fail the merge that already happened.
-  if [ -f "$REPO_PATH/.claude/hooks/cleanup-wt.py" ]; then
-    ( cd "$REPO_PATH" && python3 .claude/hooks/cleanup-wt.py --post-merge --base "$BASE" </dev/null ) >&2 || true
+  if [ -f "$REPO_PATH/.zcode/hooks/cleanup-wt.py" ]; then
+    ( cd "$REPO_PATH" && python3 .zcode/hooks/cleanup-wt.py --post-merge --base "$BASE" </dev/null ) >&2 || true
   fi
   exit 0
 fi

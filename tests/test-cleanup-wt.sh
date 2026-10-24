@@ -41,11 +41,11 @@ g switch -q -c feat-stray;    commit stray.txt 1; g switch -q trunk
 g switch -q -c feat-wtmerged; commit wtm.txt 1; g switch -q trunk; g merge -q --ff-only feat-wtmerged
 g push -q origin trunk staging
 
-g worktree add -q "$R/.claude/worktrees/wt-merged" feat-wtmerged
-g worktree add -q "$R/.claude/worktrees/wt-dirty"  feat-dirty
-g worktree add -q "$R/.claude/worktrees/wt-cur"    feat-cur
+g worktree add -q "$R/.zcode/worktrees/wt-merged" feat-wtmerged
+g worktree add -q "$R/.zcode/worktrees/wt-dirty"  feat-dirty
+g worktree add -q "$R/.zcode/worktrees/wt-cur"    feat-cur
 g worktree add -q "$T/repo-stray"                  feat-stray
-echo scratch > "$R/.claude/worktrees/wt-dirty/notes.txt"
+echo scratch > "$R/.zcode/worktrees/wt-dirty/notes.txt"
 # Age the worktrees past the 24h "fresh" window.
 for d in "$R"/.git/worktrees/*; do touch -t 202001010000 "$d/gitdir" "$d/commondir"; done
 
@@ -63,15 +63,15 @@ printf '%s\n' "$OUT" | grep -q 'bases: trunk, staging' || fail "bases should be 
 g rev-parse -q --verify feat-ff >/dev/null || fail "dry run must not delete anything"
 
 # 2 -- apply from inside wt-cur: that worktree survives even though its branch is merged.
-OUT=$(cd "$R/.claude/worktrees/wt-cur" && python3 "$CW" --no-fetch --apply)
+OUT=$(cd "$R/.zcode/worktrees/wt-cur" && python3 "$CW" --no-fetch --apply)
 gone()  { ! g rev-parse -q --verify "refs/heads/$1" >/dev/null || fail "$1 should be deleted"$'\n'"$OUT"; }
 kept()  { g rev-parse -q --verify "refs/heads/$1" >/dev/null || fail "$1 should be kept"$'\n'"$OUT"; }
 gone feat-ff; gone feat-squash; gone feat-staging; gone feat-wtmerged
 kept feat-old; kept feat-today; kept feat-cur; kept trunk; kept staging
-[ -d "$R/.claude/worktrees/wt-cur" ]      || fail "the current worktree must never be removed"
-[ ! -d "$R/.claude/worktrees/wt-merged" ] || fail "merged clean worktree should be removed"
+[ -d "$R/.zcode/worktrees/wt-cur" ]      || fail "the current worktree must never be removed"
+[ ! -d "$R/.zcode/worktrees/wt-merged" ] || fail "merged clean worktree should be removed"
 # dirty merged worktree: removed, branch kept with a wip commit holding notes.txt
-[ ! -d "$R/.claude/worktrees/wt-dirty" ]  || fail "dirty merged worktree should be removed after the wip commit"
+[ ! -d "$R/.zcode/worktrees/wt-dirty" ]  || fail "dirty merged worktree should be removed after the wip commit"
 kept feat-dirty
 g show feat-dirty:notes.txt | grep -q scratch || fail "wip commit should hold the dirty file"
 # stray unmerged worktree: folder gone, branch kept
@@ -94,15 +94,15 @@ printf '%s\n' "$OUT" | grep -q 'gh unavailable' || fail "should note gh unavaila
 printf '%s\n' "$OUT" | grep -qE '^WOULD' && fail "nothing remote may be planned without gh"
 
 # 5 -- --post-merge is silent unless it acts, local only, and never wip-commits.
-g worktree add -q "$R/.claude/worktrees/wt-pm" feat-ff
+g worktree add -q "$R/.zcode/worktrees/wt-pm" feat-ff
 for d in "$R"/.git/worktrees/wt-pm; do touch -t 202001010000 "$d/gitdir" "$d/commondir"; done
-echo wip > "$R/.claude/worktrees/wt-pm/x.txt"
+echo wip > "$R/.zcode/worktrees/wt-pm/x.txt"
 OUT=$(cd "$R" && python3 "$CW" --post-merge --base trunk </dev/null)
-[ -d "$R/.claude/worktrees/wt-pm" ] || fail "--post-merge must keep a dirty worktree"
-[ ! -d "$R/.claude/worktrees/wt-cur" ] || fail "wt-cur is merged and no longer current: it should go"
+[ -d "$R/.zcode/worktrees/wt-pm" ] || fail "--post-merge must keep a dirty worktree"
+[ ! -d "$R/.zcode/worktrees/wt-cur" ] || fail "wt-cur is merged and no longer current: it should go"
 OUT=$(cd "$R" && python3 "$CW" --post-merge --base trunk </dev/null)
 [ -z "$OUT" ] || fail "--post-merge with nothing to do should be silent, got: $OUT"
-rm "$R/.claude/worktrees/wt-pm/x.txt"
+rm "$R/.zcode/worktrees/wt-pm/x.txt"
 OUT=$(cd "$R" && python3 "$CW" --post-merge --base trunk </dev/null)
 printf '%s' "$OUT" | grep -q 'removed worktree' || fail "--post-merge should report what it removed, got: $OUT"
 gone feat-ff
