@@ -5,7 +5,7 @@
 # merges the hook settings into .claude/settings.json (backed up first, never duplicated).
 #
 # Usage:
-#   ./install.sh [--no-hooks] [--protect-main] [--hosts claude,codex,opencode] [target-project-dir]
+#   ./install.sh [--no-hooks] [--protect-main] [--hosts claude,codex,opencode,zcode] [target-project-dir]
 # Defaults to the current working directory. --no-hooks skips the guard hooks
 # and leaves settings.json untouched. --protect-main also wires the opt-in
 # guard that blocks direct and force pushes to main/master/base_branch; with
@@ -14,8 +14,8 @@
 # super-board onboard asks the questions (protect main is one of them).
 #
 # Layout: .agents/{skills/<skill>,bin,workflows,hooks} hold the files. Each host
-# folder (.claude/ always; .codex/ and .opencode/ when that folder already exists,
-# a config "host" key names it, super-board-host.sh reports it, or --hosts asks)
+# folder (.claude/ always; .codex/, .opencode/ and .zcode/ when that folder already
+# exists, a config "host" key names it, super-board-host.sh reports it, or --hosts asks)
 # gets one link per skill under skills/ and one link per file under bin/,
 # workflows/ and hooks/. Nothing that is not super-board's is touched. Where a
 # link cannot be made (Windows without symlink rights) the file is copied.
@@ -63,16 +63,16 @@ if [ ! -d "$TARGET" ]; then
   exit 64
 fi
 
-# Hosts: claude always; codex/opencode when asked, configured or detected.
+# Hosts: claude always; codex/opencode/zcode when asked, configured or detected.
 HOSTS="claude"
 add_host() { case " $HOSTS " in *" $1 "*) ;; *) HOSTS="$HOSTS $1" ;; esac; }
 for h in $(echo "$ASKED_HOSTS" | tr ',' ' '); do
   case "$h" in
-    claude|codex|opencode) add_host "$h" ;;
-    *) echo "unknown host: $h (use claude, codex or opencode)" >&2; exit 64 ;;
+    claude|codex|opencode|zcode) add_host "$h" ;;
+    *) echo "unknown host: $h (use claude, codex, opencode or zcode)" >&2; exit 64 ;;
   esac
 done
-for h in codex opencode; do [ ! -d "$TARGET/.$h" ] || add_host "$h"; done
+for h in codex opencode zcode; do [ ! -d "$TARGET/.$h" ] || add_host "$h"; done
 for h in $(python3 - "$TARGET/.claude/super-board/configs" <<'PY'
 import glob, json, os, sys
 for p in sorted(glob.glob(os.path.join(sys.argv[1], "*.json"))):
@@ -80,11 +80,12 @@ for p in sorted(glob.glob(os.path.join(sys.argv[1], "*.json"))):
         h = json.load(open(p)).get("host")
     except Exception:
         continue
-    if h in ("codex", "opencode"):
+    if h in ("codex", "opencode", "zcode"):
         print(h)
 PY
 ); do add_host "$h"; done
-[ "$(bash "$REPO_ROOT/scripts/super-board-host.sh" 2>/dev/null || true)" != codex ] || add_host codex
+detected_host=$(bash "$REPO_ROOT/scripts/super-board-host.sh" 2>/dev/null || true)
+case "$detected_host" in codex|opencode|zcode) add_host "$detected_host" ;; esac
 
 QUIET="${SUPER_BOARD_QUIET_NEXT:-}"
 PACK_VERSION="$(tr -d '[:space:]' < "$REPO_ROOT/VERSION" 2>/dev/null || echo '?')"
@@ -294,16 +295,30 @@ merge_settings() {
   else echo "new file"; fi
 }
 
+# ZCode reads hooks from .zcode/config.json, one level deeper (hooks.events.<Event>,
+# plus hooks.enabled: true, which the helper sets). Appends a suffix to the hooks
+# line above rather than its own line — get.sh budgets installer output by lines.
+# Empty output when the zcode host is not active or nothing changed.
+merge_zcode_settings() {
+  case " $HOSTS " in *" zcode "*) ;; *) return 0 ;; esac
+  local had=0 res rc=0
+  [ -f "$TARGET/.zcode/config.json" ] && had=1
+  res=$(python3 "$SETTINGS_PY" zcode-hooks "$TARGET/.zcode/config.json" "$@" 2>&1) || rc=$?
+  if [ "$rc" -eq 2 ]; then printf '%s\n' "$res" >&2; return 0; fi
+  echo "$res" | grep -q "already present" && return 0
+  echo " + .zcode/config.json ($([ "$had" -eq 1 ] && echo backup kept || echo new file))"
+}
+
 if [ "$HOOKS" -eq 1 ]; then
   set -- $HOOK_FILES; n=$#
   SNIPPETS="$REPO_ROOT/hooks/settings-snippet.json"
   if [ "$PROTECT" -eq 1 ]; then SNIPPETS="$SNIPPETS $REPO_ROOT/hooks/settings-protect-main.json"; fi
   # shellcheck disable=SC2086
-  echo "   🛡️  $n guard hooks → .claude/settings.json ($(merge_settings $SNIPPETS))"
+  echo "   🛡️  $n guard hooks → .claude/settings.json ($(merge_settings $SNIPPETS))$(merge_zcode_settings $SNIPPETS)"
 elif [ "$PROTECT" -eq 1 ]; then
   # --no-hooks --protect-main: the one guard asked for, nothing else. This is the
   # command onboard names when its protect-main question finds no guard script.
-  echo "   🛡️  --no-hooks: only the push guard → .claude/settings.json ($(merge_settings "$REPO_ROOT/hooks/settings-protect-main.json"))"
+  echo "   🛡️  --no-hooks: only the push guard → .claude/settings.json ($(merge_settings "$REPO_ROOT/hooks/settings-protect-main.json"))$(merge_zcode_settings "$REPO_ROOT/hooks/settings-protect-main.json")"
 else
   echo "   ⏭️  guard hooks skipped (--no-hooks)"
 fi

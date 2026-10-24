@@ -25,8 +25,10 @@ Keep this run choice in each wave and resume command; skip only the Claude usage
 `--codex=<model>` still apply); it counts as explicit `--codex`, Review included.
 Say so once, in the first wave report: `🔁 codex host — running as --codex`. Never improvise a Claude workflow wave in Codex.
 
-**Unknown host halts.** Run the host check before preconditions. Exit 65 (no host sign) or
-`opencode` (no OpenCode backend yet) halts before any claim, even with no Workflow tool, with one line:
+**Unknown host halts.** Run the host check before preconditions. Exit 65 (no host sign),
+`opencode` (no OpenCode backend yet) or `zcode` (no ported ZCode wave backend yet — the
+wave workflows target Claude's workflow facade, not ZCode's) halts before any claim, even
+with a Workflow tool present, with one line:
 `⛔ unknown host — set SUPER_BOARD_HOST=claude|codex and re-run`. Never guess a backend.
 
 After the same plan and claim steps, launch this command as a background task:

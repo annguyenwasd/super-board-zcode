@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# super-board-host.sh — which agent host is this shell inside: `claude`, `codex` or `opencode`.
+# super-board-host.sh — which agent host is this shell inside: `claude`, `codex`, `opencode`
+# or `zcode`.
 #
 # WHY. `/super-board run` launched from a Codex CLI session has no Claude Workflow tool, so the
 # workflow backend cannot start. The orchestrator checks its own tool list first; this is the
@@ -17,16 +18,22 @@
 #   shells it runs. Observed 2026-10-19 on opencode v2.0.22 (env diff of a `run` shell).
 #   Checked before CLAUDECODE, which leaks into OpenCode started from a Claude session.
 #   Not used: AGENT=1 (a generic name other tools set too).
+# - ZCode sets ZCODE_APP_VERSION in every shell it runs. Observed 2026-10-24 on ZCode 3.16.3
+#   (desktop env): ZCODE_APP_VERSION, ZCODE_ENV, ZCODE_BASE_URL, ZCODE_BUILD_COMMIT_ID and
+#   no CLAUDECODE. Checked before CLAUDECODE for the same reason as OpenCode: ZCode started
+#   from a Claude terminal still inherits CLAUDECODE, and the innermost host wins.
+#   Not used: ZCODE_ENV (a shape other tools copy, like NODE_ENV), ZCODE_BASE_URL.
 # - Claude Code sets CLAUDECODE=1.
 #
-# ORDER. SUPER_BOARD_HOST, Codex ids, OPENCODE, CLAUDECODE, then the config's top-level
-# `host` key (--config <file>), else exit 65. A live env sign beats the saved config.
+# ORDER. SUPER_BOARD_HOST, Codex ids, OPENCODE, ZCODE_APP_VERSION, CLAUDECODE, then the
+# config's top-level `host` key (--config <file>), else exit 65. A live env sign beats
+# the saved config.
 #
 # Usage: super-board-host.sh [--config <config.json>]
-#        prints `claude`, `codex` or `opencode`, exit 0
+#        prints `claude`, `codex`, `opencode` or `zcode`, exit 0
 #        exit 65   no sign: nothing on stdout, how to choose on stderr
-#        exit 64   SUPER_BOARD_HOST or config `host` is not one of the three
-# SUPER_BOARD_HOST=claude|codex|opencode forces the answer (tests, or a host the check
+#        exit 64   SUPER_BOARD_HOST or config `host` is not one of the four
+# SUPER_BOARD_HOST=claude|codex|opencode|zcode forces the answer (tests, or a host the check
 # misreads).
 set -euo pipefail
 
@@ -38,23 +45,25 @@ case "${1:-}" in
 esac
 
 case "${SUPER_BOARD_HOST:-}" in
-  claude|codex|opencode) echo "$SUPER_BOARD_HOST"; exit 0 ;;
+  claude|codex|opencode|zcode) echo "$SUPER_BOARD_HOST"; exit 0 ;;
   '') ;;
-  *) echo "super-board-host.sh: SUPER_BOARD_HOST must be claude, codex or opencode" >&2; exit 64 ;;
+  *) echo "super-board-host.sh: SUPER_BOARD_HOST must be claude, codex, opencode or zcode" >&2; exit 64 ;;
 esac
 
 if [ -n "${CODEX_THREAD_ID:-}" ] || [ -n "${CODEX_SESSION_ID:-}" ]; then
   echo codex
 elif [ -n "${OPENCODE:-}" ]; then
   echo opencode
+elif [ -n "${ZCODE_APP_VERSION:-}" ]; then
+  echo zcode
 elif [ -n "${CLAUDECODE:-}" ]; then
   echo claude
 elif saved=$( [ -f "$config" ] && jq -r '.host // empty' "$config" 2>/dev/null ) && [ -n "$saved" ]; then
   case "$saved" in
-    claude|codex|opencode) echo "$saved" ;;
-    *) echo "super-board-host.sh: config host must be claude, codex or opencode, got '$saved'" >&2; exit 64 ;;
+    claude|codex|opencode|zcode) echo "$saved" ;;
+    *) echo "super-board-host.sh: config host must be claude, codex, opencode or zcode, got '$saved'" >&2; exit 64 ;;
   esac
 else
-  echo "super-board-host.sh: unknown agent host. Pick one: SUPER_BOARD_HOST=claude|codex|opencode, or set \"host\" in the board config" >&2
+  echo "super-board-host.sh: unknown agent host. Pick one: SUPER_BOARD_HOST=claude|codex|opencode|zcode, or set \"host\" in the board config" >&2
   exit 65
 fi

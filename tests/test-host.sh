@@ -15,6 +15,7 @@ host() { env -i PATH="$PATH" "$@" bash "$S"; }
 [ "$(host SUPER_BOARD_HOST=codex)" = codex ] || fail 'override forces codex'
 [ "$(host SUPER_BOARD_HOST=claude CODEX_THREAD_ID=01a1)" = claude ] || fail 'override beats the env'
 [ "$(host SUPER_BOARD_HOST=opencode)" = opencode ] || fail 'override accepts opencode'
+[ "$(host SUPER_BOARD_HOST=zcode)" = zcode ] || fail 'override accepts zcode'
 rc=0; host SUPER_BOARD_HOST=gemini >/dev/null 2>&1 || rc=$?
 [ "$rc" = 64 ] || fail "bad override exits 64, got $rc"
 
@@ -31,6 +32,15 @@ nohost
 nohost CODEX_HOME=/x CODEX_SANDBOX=seatbelt   # not host signs
 nohost CODEX_THREAD_ID= CLAUDECODE=            # empty values are not signs
 nohost AGENT=1                                 # OpenCode sets it, but so do other tools
+nohost ZCODE_ENV=production ZCODE_BASE_URL=https://zcode.z.ai  # zcode signs we do not use
+nohost ZCODE_APP_VERSION=                      # empty value is not a sign
+
+# ZCode 3.16.3 exports ZCODE_APP_VERSION. It wins over a CLAUDECODE leaked from a parent
+# Claude session; the override and a Codex id still win over it.
+[ "$(host ZCODE_APP_VERSION=3.16.3)" = zcode ] || fail 'ZCODE_APP_VERSION means zcode'
+[ "$(host ZCODE_APP_VERSION=3.16.3 CLAUDECODE=1)" = zcode ] || fail 'ZCode under a Claude parent is zcode'
+[ "$(host SUPER_BOARD_HOST=claude ZCODE_APP_VERSION=3.16.3)" = claude ] || fail 'override beats the ZCode sign'
+[ "$(host CODEX_THREAD_ID=01a1 ZCODE_APP_VERSION=3.16.3)" = codex ] || fail 'a Codex id beats the ZCode sign'
 
 # OpenCode v2.0.22 exports OPENCODE=1. It wins over a CLAUDECODE leaked from a parent Claude
 # session; the override and a Codex id still win over it.
@@ -42,10 +52,13 @@ nohost AGENT=1                                 # OpenCode sets it, but so do oth
 # Config `host` (top-level key): used only when no override and no env sign is present.
 T=$(mktemp -d); trap 'rm -f "$ERR"; rm -rf "$T"' EXIT
 printf '{"host":"codex"}' > "$T/codex.json"
+printf '{"host":"zcode"}' > "$T/zcode.json"
 printf '{"worker_backend":"workflow"}' > "$T/none.json"
 printf '{"host":"gemini"}' > "$T/bad.json"
 cfg() { local f=$1; shift; env -i PATH="$PATH" "$@" bash "$S" --config "$f"; }
 [ "$(cfg "$T/codex.json")" = codex ] || fail 'config host codex prints codex'
+[ "$(cfg "$T/zcode.json")" = zcode ] || fail 'config host zcode prints zcode'
+[ "$(cfg "$T/zcode.json" CLAUDECODE=1)" = claude ] || fail 'an env sign beats config host zcode'
 [ "$(cfg "$T/codex.json" CLAUDECODE=1)" = claude ] || fail 'an env sign beats config host'
 [ "$(cfg "$T/codex.json" SUPER_BOARD_HOST=opencode)" = opencode ] || fail 'override beats config host'
 for f in none missing; do

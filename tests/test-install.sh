@@ -23,8 +23,9 @@ fail() { echo "FAIL: $1" >&2; exit 1; }
 plant_decoys() { for d in decoy-one decoy-two decoy-three; do mkdir -p "$1/.claude/skills/$d"; touch "$1/.claude/skills/$d/SKILL.md"; done; }
 decoys_intact() { [ "$(ls "$1/.claude/skills" | grep -c '^decoy')" -eq 3 ]; }
 
-# A Codex shell would add .codex/ links by detection; keep the default layout predictable.
-unset CODEX_THREAD_ID CODEX_SESSION_ID SUPER_BOARD_HOST
+# A host shell (Codex, OpenCode, ZCode) would add its own host folder by detection;
+# keep the default layout predictable. Cases that test detection set their sign explicitly.
+unset CODEX_THREAD_ID CODEX_SESSION_ID SUPER_BOARD_HOST OPENCODE ZCODE_APP_VERSION CLAUDECODE
 
 SKILLS="super-board super-build super-qa super-review"
 ALL_SKILLS="$SKILLS super-collect ui-refine-loop visual git-sync"
@@ -270,6 +271,15 @@ echo "$OUT" | grep -q "✓ skills, scripts and workflows → .agents/" || fail "
 echo "$OUT" | grep -q "🛡️  6 guard hooks → .claude/settings.json (new file)" || fail "guard line should count hooks, got: $OUT"
 [ "$(echo "$OUT" | wc -l | tr -d ' ')" -le 3 ] || fail "grouped output should be ≤ 3 lines here, got: $OUT"
 rm -rf "$T"
+# A zcode host extends the same hooks line (no extra line) and writes ZCode's config.
+T=$(mktemp -d)
+OUT=$(ZCODE_APP_VERSION=3.16.3 SUPER_BOARD_QUIET_NEXT=1 "$INSTALL" "$T" 2>&1)
+echo "$OUT" | grep -q "🛡️  6 guard hooks → .claude/settings.json (new file) + .zcode/config.json (new file)" \
+  || fail "zcode host should extend the hooks line, got: $OUT"
+[ "$(echo "$OUT" | wc -l | tr -d ' ')" -le 3 ] || fail "zcode host must not add output lines, got: $OUT"
+jq -e '.hooks.enabled == true and (.hooks.events.PreToolUse | length) == 3 and (.hooks.events.SessionStart | length) == 1' \
+  "$T/.zcode/config.json" >/dev/null || fail "zcode hooks config wrong: $(cat "$T/.zcode/config.json")"
+rm -rf "$T"
 
 # 12 — upgrade record: an older super-board in the target is written to
 #      .claude/super-board/upgrade.json (from, to, the skills that are new) for onboard.
@@ -294,7 +304,8 @@ done
 rm -rf "$T"
 
 # 13 — shared layout: the files live once under .agents/; .claude/ reaches them through
-#      links. No .codex/ or .opencode/ unless that host is configured, detected or asked for.
+#      links. No .codex/, .opencode/ or .zcode/ unless that host is configured, detected
+#      or asked for (the ambient host signs are unset at the top of this file).
 resolves() { # <target> <host> — host paths reach the .agents/ copy
   for p in skills/super-board/SKILL.md skills/git-sync/SKILL.md bin/super-board-host.sh workflows/super-board-wave.js; do
     [ "$1/.$2/$p" -ef "$1/.agents/$p" ] || fail "$2: $p does not resolve to .agents/$p"
@@ -309,14 +320,14 @@ resolves "$T" claude
 [ -L "$T/.claude/skills/super-board" ] || fail "fresh: .claude/skills/super-board should be a link"
 [ "$(readlink "$T/.claude/skills/super-board")" = "../../.agents/skills/super-board" ] || fail "fresh: links must be relative, got $(readlink "$T/.claude/skills/super-board")"
 [ "$T/.claude/hooks/guard-secrets.py" -ef "$T/.agents/hooks/guard-secrets.py" ] || fail "fresh: hooks should resolve to .agents/hooks"
-[ ! -e "$T/.codex" ] && [ ! -e "$T/.opencode" ] || fail "fresh: no host was asked for, yet .codex/ or .opencode/ appeared"
+[ ! -e "$T/.codex" ] && [ ! -e "$T/.opencode" ] && [ ! -e "$T/.zcode" ] || fail "fresh: no host was asked for, yet .codex/, .opencode/ or .zcode/ appeared"
 echo "$OUT" | grep -q "✓ skills, scripts and workflows → .agents/ (linked from .claude)" || fail "fresh: grouped line should name .agents/ and the hosts, got: $OUT"
 rm -rf "$T"
 
 # 14 — --hosts adds hosts (claude is always kept); both flag forms; unknown names refused.
 T=$(mktemp -d)
-"$INSTALL" --no-hooks --hosts codex,opencode "$T" >/dev/null 2>&1 || fail "--hosts codex,opencode failed"
-for h in claude codex opencode; do resolves "$T" "$h"; done
+"$INSTALL" --no-hooks --hosts codex,opencode,zcode "$T" >/dev/null 2>&1 || fail "--hosts codex,opencode,zcode failed"
+for h in claude codex opencode zcode; do resolves "$T" "$h"; done
 rm -rf "$T"
 T=$(mktemp -d)
 "$INSTALL" --no-hooks --hosts=opencode "$T" >/dev/null 2>&1 || fail "--hosts=opencode failed"
@@ -324,22 +335,39 @@ resolves "$T" opencode; resolves "$T" claude
 [ ! -e "$T/.codex" ] || fail "--hosts=opencode must not create .codex/"
 rm -rf "$T"
 T=$(mktemp -d)
+"$INSTALL" --no-hooks --hosts=zcode "$T" >/dev/null 2>&1 || fail "--hosts=zcode failed"
+resolves "$T" zcode; resolves "$T" claude
+[ ! -e "$T/.codex" ] && [ ! -e "$T/.opencode" ] || fail "--hosts=zcode must not create .codex/ or .opencode/"
+rm -rf "$T"
+T=$(mktemp -d)
 if OUT=$("$INSTALL" --hosts claude,cursor "$T" 2>&1); then fail "an unknown host should be refused"; fi
 echo "$OUT" | grep -q "unknown host: cursor" || fail "unknown host should be named, got: $OUT"
 [ ! -e "$T/.agents" ] || fail "a refused --hosts must install nothing"
 rm -rf "$T"
 
-# 15 — detection: an existing .codex/ or .opencode/ folder, a config "host" key, or a Codex shell.
+# 15 — detection: an existing host folder, a config "host" key, or a host shell
+#      (its sign set explicitly; the ambient ones are unset at the top of this file).
 T=$(mktemp -d); mkdir -p "$T/.codex"
 "$INSTALL" --no-hooks "$T" >/dev/null 2>&1; resolves "$T" codex
-[ ! -e "$T/.opencode" ] || fail "detection: .codex/ alone must not add .opencode/"
+[ ! -e "$T/.opencode" ] && [ ! -e "$T/.zcode" ] || fail "detection: .codex/ alone must not add .opencode/ or .zcode/"
+rm -rf "$T"
+T=$(mktemp -d); mkdir -p "$T/.zcode"
+"$INSTALL" --no-hooks "$T" >/dev/null 2>&1; resolves "$T" zcode
+[ ! -e "$T/.codex" ] || fail "detection: .zcode/ alone must not add .codex/"
 rm -rf "$T"
 T=$(mktemp -d); mkdir -p "$T/.claude/super-board/configs"
 echo '{"host": "opencode"}' > "$T/.claude/super-board/configs/app.json"
 "$INSTALL" --no-hooks "$T" >/dev/null 2>&1; resolves "$T" opencode
 rm -rf "$T"
+T=$(mktemp -d); mkdir -p "$T/.claude/super-board/configs"
+echo '{"host": "zcode"}' > "$T/.claude/super-board/configs/app.json"
+"$INSTALL" --no-hooks "$T" >/dev/null 2>&1; resolves "$T" zcode
+rm -rf "$T"
 T=$(mktemp -d)
 CODEX_THREAD_ID=t1 "$INSTALL" --no-hooks "$T" >/dev/null 2>&1; resolves "$T" codex
+rm -rf "$T"
+T=$(mktemp -d)
+ZCODE_APP_VERSION=3.16.3 "$INSTALL" --no-hooks "$T" >/dev/null 2>&1; resolves "$T" zcode
 rm -rf "$T"
 
 # 16 — upgrade a real-directory .claude/ install: every path it had still resolves, super-board's

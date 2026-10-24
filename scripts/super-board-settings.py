@@ -2,17 +2,22 @@
 """super-board-settings.py — merge into .claude/settings.json without losing anything.
 
     super-board-settings.py hooks <settings.json> <snippet.json> [...] [--dry-run]
+    super-board-settings.py zcode-hooks <.zcode/config.json> <snippet.json> [...] [--dry-run]
     super-board-settings.py allow <settings.json> <rule> [<rule> ...]  [--dry-run]
 
 `hooks` adds each hook command from the snippets once per event + matcher
-(install.sh and onboard's protect-main step). `allow` adds permission rules to
+(install.sh and onboard's protect-main step). `zcode-hooks` merges the same
+snippets into a ZCode workspace config: ZCode wraps them one level deeper
+(`hooks.events.<Event>`) and runs config-file hooks only when `hooks.enabled`
+is true, so that flag is set whenever new hook commands were added (an existing
+`enabled: false` survives a no-op re-run). `allow` adds permission rules to
 `permissions.allow` once each (onboard's Permissions step, after the user
-approved the printed diff). Both keep every existing key, back the file up
-(`settings.json.bak-<ts>`) before writing, write atomically, and leave an
-invalid settings.json untouched. `--dry-run` prints what would be added
-(`+ <line>`) and writes nothing.
+approved the printed diff). All keep every existing key, back the file up
+(`settings.json.bak-<ts>` or `config.json.bak-<ts>`) before writing, write
+atomically, and leave an invalid JSON file untouched. `--dry-run` prints what
+would be added (`+ <line>`) and writes nothing.
 
-Exit: 0 ok (including "already present"), 2 settings.json invalid, 64 usage.
+Exit: 0 ok (including "already present"), 2 the target file is invalid, 64 usage.
 """
 from __future__ import annotations
 
@@ -52,11 +57,10 @@ def save(path: str, data: dict) -> None:
     os.replace(tmp, path)
 
 
-def merge_hooks(settings: dict, snippets: list[dict]) -> list[str]:
-    hooks = settings.setdefault("hooks", {})
+def merge_events(events: dict, snippets: list[dict]) -> list[str]:
     added = []
     for event, entries in [kv for s in snippets for kv in s["hooks"].items()]:
-        current = hooks.setdefault(event, [])
+        current = events.setdefault(event, [])
         for entry in entries:
             matcher = entry.get("matcher")
             target = next((e for e in current if e.get("matcher") == matcher), None)
@@ -74,6 +78,10 @@ def merge_hooks(settings: dict, snippets: list[dict]) -> list[str]:
     return added
 
 
+def merge_hooks(settings: dict, snippets: list[dict]) -> list[str]:
+    return merge_events(settings.setdefault("hooks", {}), snippets)
+
+
 def merge_allow(settings: dict, rules: list[str]) -> list[str]:
     allow = settings.setdefault("permissions", {}).setdefault("allow", [])
     added = []
@@ -87,7 +95,7 @@ def merge_allow(settings: dict, rules: list[str]) -> list[str]:
 def main(argv: list[str]) -> int:
     dry = "--dry-run" in argv
     args = [a for a in argv if a != "--dry-run"]
-    if len(args) < 3 or args[0] not in ("hooks", "allow"):
+    if len(args) < 3 or args[0] not in ("hooks", "zcode-hooks", "allow"):
         print(__doc__, file=sys.stderr)
         return 64
     verb, path, rest = args[0], args[1], args[2:]
@@ -95,6 +103,12 @@ def main(argv: list[str]) -> int:
     if verb == "hooks":
         added = merge_hooks(settings, [json.load(open(p)) for p in rest])
         noun = "hook command(s)"
+    elif verb == "zcode-hooks":
+        events = settings.setdefault("hooks", {}).setdefault("events", {})
+        added = merge_events(events, [json.load(open(p)) for p in rest])
+        if added:
+            settings["hooks"]["enabled"] = True
+        noun = "zcode hook command(s)"
     else:
         added = merge_allow(settings, rest)
         noun = "permission rule(s)"

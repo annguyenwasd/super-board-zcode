@@ -86,8 +86,10 @@ fi
 
 # 8 — grouped output, in the spec's order: header · checks · download · installing ·
 #     helper skills · 🎉 · 👉. One line per group of files, no per-file list.
+#     Host env signs are stripped so the Claude-only baseline holds inside any host shell
+#     (a zcode/codex shell would also link that host and extend the hooks line).
 T="$WORK/t8"; mkdir -p "$T"; printf '# Rules\n- pnpm\n' > "$T/CLAUDE.md"; : > "$NPX_LOG"
-out=$(bash "$GET" --target "$T" 2>&1) || fail "grouped-output install failed: $out"
+out=$(env -u CLAUDECODE -u CODEX_THREAD_ID -u CODEX_SESSION_ID -u OPENCODE -u ZCODE_APP_VERSION bash "$GET" --target "$T" 2>&1) || fail "grouped-output install failed: $out"
 order=$(printf '%s\n' "$out" | grep -oE '^(🧩|🔍|📦|🔧|🧠|🎉|👉)' | tr -d '\n')
 [ "$order" = "🧩🔍📦🔧🧠🎉👉" ] || fail "groups out of order ($order): $out"
 printf '%s\n' "$out" | grep -q '^   ✓ curl · tar · python3 · gh · jq · node$' || fail "checks line wrong: $out"
