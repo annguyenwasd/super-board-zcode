@@ -345,6 +345,16 @@ echo "$OUT" | grep -q "unknown host: cursor" || fail "unknown host should be nam
 [ ! -e "$T/.agents" ] || fail "a refused --hosts must install nothing"
 rm -rf "$T"
 
+# 14b — the zcode host ships the .dwf.ts workflow definitions ZCode loads from
+#       .zcode/workflows/, link or copy, content intact.
+T=$(mktemp -d)
+"$INSTALL" --no-hooks --hosts zcode "$T" >/dev/null 2>&1 || fail "--hosts zcode failed"
+for f in super-board-wave.dwf.ts ui-refine-loop.dwf.ts; do
+  [ -f "$T/.zcode/workflows/$f" ] || fail "zcode host: .zcode/workflows/$f was not shipped"
+  cmp -s "../.zcode/workflows/$f" "$T/.zcode/workflows/$f" || fail "zcode host: $f differs from the pack copy"
+done
+rm -rf "$T"
+
 # 15 — detection: an existing host folder, a config "host" key, or a host shell
 #      (its sign set explicitly; the ambient ones are unset at the top of this file).
 T=$(mktemp -d); mkdir -p "$T/.codex"
@@ -442,4 +452,4 @@ doc = re.search(r"```json\n(.*?)```", open(sys.argv[1]).read(), re.S).group(1)
 sys.exit(0 if json.loads(doc) == json.load(open(sys.argv[2])) else 1)
 PY
 
-echo "PASS: test-install.sh (24 scenarios)"
+echo "PASS: test-install.sh (25 scenarios)"
