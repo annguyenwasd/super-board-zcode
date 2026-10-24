@@ -1,0 +1,1 @@
+{"reason": "GitHub required read returned incomplete evidence: merge outcome unreadable; stopped after 3 failed attempts", "attempts": 3, "at": 1792844600, "operation": {"args": ["pr", "view", "2", "--json", "state,mergeCommit"], "kind": "merge-state", "meta": null}}

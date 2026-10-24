@@ -63,7 +63,7 @@ Checks · GitHub · Board · Branch · AGENTS.md · Policies · Bug sources · R
 
 Add cards to `Ready`. The board drains on its own.
 
-On ZCode this runs through the ported saved workflow `super-board-wave` (compile-verified; a full-card board run is not yet observed). Every lane runs on the run's model; Claude's tier ladder does not apply. `/ui-refine-loop` was verified in a real ZCode run. Status per host: [supported hosts](docs/hosts.md).
+On ZCode this runs through the ported saved workflow `super-board-wave`, verified end to end on 2026-10-24: a real card went Ready → Building → QA → Review → Done with its PR merged through the merge gate. Every lane runs on the run's model; Claude's tier ladder does not apply. Status per host: [supported hosts](docs/hosts.md).
 
 ## How it works
 

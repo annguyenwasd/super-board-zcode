@@ -41,3 +41,13 @@ evals/results/
 
 # ZCode machine-owned workflow run drafts
 .zcode/workflow-drafts/
+
+# self-install of the pack into its own repo (links + runtime; settings.json stays tracked)
+.agents/
+.claude/skills/
+.claude/bin/
+.claude/workflows/
+.zcode/skills/
+.zcode/bin/
+.zcode/config.json
+.zcode/workflows/*.js
