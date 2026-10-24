@@ -197,10 +197,16 @@ def snippet_commands(pack):
     return [h["command"] for entries in snip["hooks"].values() for e in entries for h in e.get("hooks", [])]
 
 
-def settings_commands(root):
-    s = load_json(os.path.join(root, ".claude", "settings.json")) or {}
-    return {h.get("command") for entries in (s.get("hooks") or {}).values() for e in entries
-            for h in e.get("hooks", [])}
+def settings_commands(root, host="claude"):
+    # zcode runs the same guard commands wired one level deeper: .zcode/config.json
+    # hooks.events (written by super-board-settings.py zcode-hooks).
+    if host == "zcode":
+        s = load_json(os.path.join(root, ".zcode", "config.json")) or {}
+        events = ((s.get("hooks") or {}).get("events") or {}).values()
+    else:
+        s = load_json(os.path.join(root, ".claude", "settings.json")) or {}
+        events = (s.get("hooks") or {}).values()
+    return {h.get("command") for ev in events for e in ev for h in e.get("hooks", [])}
 
 
 # ── config migration ───────────────────────────────────────────────────────────
@@ -294,10 +300,11 @@ def check(root, pack, host="claude", home=None, catalog=None):
     missing += [f"workflow {w}" for w in WORKFLOWS if not os.path.isfile(os.path.join(claude, "workflows", w))]
     hook_files = sorted(os.path.basename(p) for p in glob.glob(os.path.join(pack, "hooks", "*.py"))) if pack else []
     missing += [f"hook {h}" for h in hook_files if not os.path.isfile(os.path.join(claude, "hooks", h))]
-    wired = settings_commands(root)
+    wired = settings_commands(root, host)
     unwired = [c for c in snippet_commands(pack) if c not in wired]
     if unwired:
-        missing.append(f"settings.json: {len(unwired)} guard entr{'y' if len(unwired) == 1 else 'ies'}")
+        fname = ".zcode/config.json" if host == "zcode" else "settings.json"
+        missing.append(f"{fname}: {len(unwired)} guard entr{'y' if len(unwired) == 1 else 'ies'}")
     old_dirs = [d for d in OLD_SKILL_DIRS if os.path.isdir(os.path.join(claude, "skills", d))]
     configs = {}
     verification = {}
@@ -973,8 +980,8 @@ def main(argv):
         if cmd in ("check", "fix"):
             pack = find_pack(flag(rest, "--pack"))
             host, home, catalog = flag(rest, "--host", "claude"), flag(rest, "--home", os.environ.get("SUPER_BOARD_SKILLS_HOME")), flag(rest, "--catalog", os.environ.get("SUPER_BOARD_SKILLS_CATALOG"))
-            if host not in ("claude", "codex"):
-                raise ValueError("--host must be claude or codex")
+            if host not in ("claude", "codex", "zcode"):
+                raise ValueError("--host must be claude, codex or zcode")
             res = check(root, pack, host, home, catalog) if cmd == "check" else fix(root, pack, "--no-helpers" not in rest, dry, host, home, catalog)
             if res.get("error") == "pack-not-found":
                 print(json.dumps(res, indent=1))

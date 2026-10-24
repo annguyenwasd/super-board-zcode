@@ -49,7 +49,7 @@ for arg in "$@"; do
     *) TARGET="$arg" ;;
   esac
 done
-[ "$want_hosts" -eq 0 ] || { echo "--hosts needs a list, e.g. --hosts claude,codex" >&2; exit 64; }
+[ "$want_hosts" -eq 0 ] || { echo "--hosts needs a list, e.g. --hosts claude,codex,zcode" >&2; exit 64; }
 TARGET="${TARGET:-$PWD}"
 
 # Primary: the board and its lanes. Secondary: standalone helpers the lanes

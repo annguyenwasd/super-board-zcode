@@ -204,7 +204,7 @@ Repeat until a done condition or halt gate fires:
    read-only with `.claude/bin/super-board-github-read.py --kind issue -- issue
    view <N> --json number,title,body`. Keep number, status, labels and literal body
    in a JSON array file. Run `python3 .claude/bin/super-board-skills-ready.py
-   --root <repo-root> --host <claude|codex> --cards <cards.json>` for the actual
+   --root <repo-root> --host <claude|codex|zcode> --cards <cards.json>` for the actual
    worker host before sweep/resume/refresh/flag/stranded actions or Claim.
    Exit 10 names missing helpers: halt, preserve all state, repair the exact
    visible skill files and restart explicitly. Exit 64 means invalid input.
