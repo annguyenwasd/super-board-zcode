@@ -280,7 +280,10 @@ fi
 
 for cmd in "${VERIFY[@]}"; do
   say "verify: ${cmd}"
-  if ! ( cd "$SCRATCH" && eval "$cmd" ) >"$SCRATCH/.verify.log" 2>&1; then
+  # Scrub the gate's own strict-read flag inside the subshell: it is for our gh
+  # reads, not the project's verify_commands, whose env must match a normal
+  # checkout (#3). unset (not an env(1) prefix) so compound commands keep working.
+  if ! ( cd "$SCRATCH" && unset SB_GITHUB_READ_STRICT && eval "$cmd" ) >"$SCRATCH/.verify.log" 2>&1; then
     say "FAILED: ${cmd}"
     tail -30 "$SCRATCH/.verify.log" >&2
     say "the branch is stale against ${BASE} — send it back to Build for a rebase pass"
