@@ -312,6 +312,20 @@ def read(args, kind='json', meta=None, recovering=False):
             diagnostic = result.stderr
             if result.returncode:
                 diagnostic += result.stdout
+                # A reply-less PR comment's /replies endpoint returns 404, not
+                # an empty list; that is evidence of zero replies, not a
+                # rejected read (#4).
+                if (kind in ('json', 'array') and args[:1] == ['api']
+                        and '/comments/' in args[-1] and args[-1].endswith('/replies')
+                        and re.search(r'HTTP 404', result.stderr)):
+                    try:
+                        value = validate('[]', kind, meta)
+                    except (ValueError, KeyError, TypeError, AttributeError, IndexError):
+                        pass
+                    else:
+                        if not recovering:
+                            check_halt()
+                        return '[]', value
             elif kind != 'diff':
                 try:
                     payload = json.loads(result.stdout)

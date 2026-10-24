@@ -43,6 +43,14 @@ sys.exit(r.get('rc', 0))
                                *(command or ['api', 'rate_limit'])],
                               env=self.env, text=True, capture_output=True, cwd=self.root)
 
+    def test_replies_404_means_zero_replies(self):
+        r = self.read([{'rc': 1, 'err': 'gh: Not Found (HTTP 404)'}], kind='json',
+                      command=['api', 'repos/o/r/pulls/comments/1/replies'])
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(r.stdout, '[]')
+        self.assertEqual(self.log.read_text(), '1')
+        self.assertFalse(self.halt.exists())
+
     def test_three_failed_attempts_halt_without_fabricated_output(self):
         r = self.read([{'rc': 1, 'err': 'HTTP 503 unavailable'}])
         self.assertEqual(r.returncode, 79, r.stderr)
