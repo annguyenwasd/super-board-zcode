@@ -258,7 +258,7 @@ grep -q '^- keep me$' "$T/AGENTS.md" && grep -q '^- and me$' "$T/AGENTS.md" || f
 grep -q '^old$' "$T/AGENTS.md" && fail "install should refresh the managed block"
 grep -q "super-board:begin v$(cat ../VERSION)" "$T/AGENTS.md" || fail "block should carry the pack version"
 echo "$OUT" | grep -q "CLAUDE.md holds its own rules" || fail "a non-pointer CLAUDE.md should get the onboard hint"
-[ "$(echo "$OUT" | tail -1)" = "👉 next: open Claude Code here and run /super-board onboard" ] || fail "last line should name onboard, got: $(echo "$OUT" | tail -1)"
+[ "$(echo "$OUT" | tail -1)" = "👉 next: open ZCode here and run /super-board onboard" ] || fail "last line should name onboard, got: $(echo "$OUT" | tail -1)"
 echo "$OUT" | grep -q "📜 AGENTS.md: super-board block refreshed" || fail "the block refresh should be one grouped line, got: $OUT"
 rm -rf "$T"
 # SUPER_BOARD_QUIET_NEXT=1 (set by get.sh, which prints its own header and next step)

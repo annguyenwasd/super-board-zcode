@@ -10,11 +10,9 @@
 
 <p>
 <img alt="Version" src="https://img.shields.io/badge/version-3.1.2-1f883d?style=flat-square">
-<img alt="Host" src="https://img.shields.io/badge/Claude%20Code-skills-d97757?style=flat-square">
+<img alt="Host" src="https://img.shields.io/badge/ZCode-skills-blue?style=flat-square">
 <img alt="License" src="https://img.shields.io/badge/license-MIT-0969da?style=flat-square">
 </p>
-
-<p><a href="https://erictechpro.github.io/super-board/"><strong>🌐 Live site: erictechpro.github.io/super-board</strong></a></p>
 
 <p><a href="#install">Install</a> · <a href="#quick-start">Quick start</a> · <a href="#how-it-works">How it works</a> · <a href="#skills">Skills</a> · <a href="#commands">Commands</a> · <a href="#guards--hooks">Guards</a></p>
 
@@ -25,23 +23,16 @@
 
 ## Install
 
-In your project folder:
+This is the ZCode fork of super-board. Run this in your project folder:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/EricTechPro/super-board/main/get.sh | bash
+curl -fsSL https://raw.githubusercontent.com/annguyenwasd/super-board-zcode/main/get.sh | bash
 ```
 
-Or as a Claude Code plugin:
+> [!IMPORTANT]
+> There is no ZCode plugin and no `/plugin` command here. Do not run `/plugin marketplace add EricTechPro/super-board`; that installs the original Claude Code pack. This installer works as plain skills: it copies skills, scripts and workflows into `.agents/`, links them into `.zcode/` and `.claude/`, and writes the guard hooks into `.zcode/config.json`. Run state stays in `.claude/super-board/`. Needs ZCode, `gh`, `jq`, bash 3.2+ and Python 3.9+; the installer checks.
 
-```
-/plugin marketplace add EricTechPro/super-board
-/plugin install super-board@super-board
-```
-
-> [!NOTE]
-> The plugin ships the skills only. Run `/super-board:super-board onboard` and its 🔍 Checks step adds the guard hooks, scripts and workflows. Needs Claude Code, `gh`, `jq`, bash 3.2+ and Python 3.9+; the installer checks.
-
-Running from Codex, OpenCode or ZCode? See [supported hosts](docs/hosts.md) for tested versions, sign-in and gaps.
+Running Claude Code or Codex? Use the [original pack](https://github.com/EricTechPro/super-board). See [supported hosts](docs/hosts.md) for tested versions, sign-in and gaps.
 
 Optional post-run learning can delegate an already installed `calibrate` skill after
 verified selected work completes. It applies only to explicitly permitted existing
@@ -71,6 +62,8 @@ Checks · GitHub · Board · Branch · AGENTS.md · Policies · Bug sources · R
 ```
 
 Add cards to `Ready`. The board drains on its own.
+
+On ZCode this step halts today: the wave backend (`workflows/super-board-wave.js`) still targets the Claude workflow facade and its port is not done. `/ui-refine-loop` runs on ZCode and was verified in a real run. Status per host: [supported hosts](docs/hosts.md).
 
 ## How it works
 
@@ -170,7 +163,7 @@ Commits, tickets, PR bodies and comments all follow [one writing standard](https
 
 ## Credits
 
-MIT © Eric Tech ([LICENSE](LICENSE)). Built on [obra/superpowers](https://github.com/obra/superpowers), [mattpocock/skills](https://github.com/mattpocock/skills), [BuilderIO/skills](https://github.com/BuilderIO/skills) and [tt-a1i/archify](https://github.com/tt-a1i/archify).
+Fork of [EricTechPro/super-board](https://github.com/EricTechPro/super-board) by Eric Tech, ported to ZCode. MIT.
 
 ---
 
@@ -185,12 +178,11 @@ MIT © Eric Tech ([LICENSE](LICENSE)). Built on [obra/superpowers](https://githu
 <a href="RELEASING.md">Release checks</a> ·
 <a href="https://youtu.be/nX_bGyIOFM4">YouTube walkthrough</a>
 </p>
-<p align="center"><sub>Made by Eric Tech</sub></p>
 
 ### Worker skill availability
 
 Setup and dispatch resolve real, nonempty `SKILL.md` files for the actual
-Claude or Codex host. Missing required skills halt before claims or workers;
+detected host. Missing required skills halt before claims or workers;
 lockfiles and arbitrary plugin caches do not count. The shared registry in
 `scripts/super-board-skills-ready.py` owns lane dependencies, overrides and the
 two declared ponytail fallbacks. Setup's full helper union may be red while a

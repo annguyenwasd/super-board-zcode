@@ -355,5 +355,5 @@ fi
 
 if [ -z "$QUIET" ]; then
   echo "🎉 super-board $PACK_VERSION is installed"
-  echo "👉 next: open Claude Code here and run /super-board onboard"
+  echo "👉 next: open ZCode here and run /super-board onboard"
 fi
