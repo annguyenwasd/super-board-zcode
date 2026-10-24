@@ -320,4 +320,24 @@ python3 "$SETUP" fix --root "$WORK/bare" --no-helpers >/dev/null || true
 q '.host == "gemini"' "$H/b.json" || fail "fix must not guess over a set host: $(cat "$H/b.json")"
 rm "$H/b.json"
 
-echo "PASS: test-setup.sh (13 scenarios)"
+# 14 — `--host zcode`: the CLI gate accepts it, check validates hook wiring in
+#      .zcode/config.json (hooks.events, same commands as the snippet) instead of
+#      .claude/settings.json, and unknown hosts stay rejected. The fixture may
+#      already carry zcode wiring (install.sh links the ambient host), so drop it
+#      first; helper readiness stays out of the assertions — it is ambient, and
+#      only `missing` is this scenario's subject.
+T="$WORK/bare"
+OUT=$(python3 "$SETUP" check --root "$T" --host zcode 2>&1 || true)
+echo "$OUT" | grep -q "must be claude" && fail "--host zcode must pass the CLI gate: $OUT"
+rm -f "$T/.zcode/config.json"
+OUT=$(python3 "$SETUP" check --root "$T" --host zcode || true)
+echo "$OUT" | q '.missing[0] | startswith(".zcode/config.json")' \
+  || fail "zcode check must flag missing .zcode/config.json wiring: $OUT"
+python3 "$PACK/scripts/super-board-settings.py" zcode-hooks "$T/.zcode/config.json" \
+  "$PACK/hooks/settings-snippet.json" >/dev/null
+OUT=$(python3 "$SETUP" check --root "$T" --host zcode || true)
+echo "$OUT" | q '.missing == []' || fail "wired .zcode/config.json must satisfy host zcode: $OUT"
+OUT=$(python3 "$SETUP" check --root "$T" --host gemini 2>&1 || true)
+echo "$OUT" | grep -q "must be claude" || fail "host gemini must still be rejected: $OUT"
+
+echo "PASS: test-setup.sh (14 scenarios)"
