@@ -21,4 +21,12 @@ done
 # README links the page from the Install section (between ## Install and the next ## heading).
 awk '/^## Install/{on=1; next} /^## /{on=0} on' README.md | grep -q '(docs/hosts.md)' \
   || fail "README Install section must link docs/hosts.md"
+
+# The post-port integration run section: present, <= 12 lines, with date, host version and outcome.
+section=$(awk '/^## Integration run 2026-10-25 \(post-port\)$/{on=1} on' "$DOC")
+[ -n "$section" ] || fail "integration run 2026-10-25 (post-port) section missing from $DOC"
+[ "$(printf '%s\n' "$section" | wc -l)" -le 12 ] || fail "integration run section is over 12 lines"
+for fact in "2026-10-25" "ZCode 3.16.3" "Ready → Done"; do
+  printf '%s\n' "$section" | grep -qF "$fact" || fail "integration run section missing: $fact"
+done
 echo "PASS: test-hosts-doc.sh ($n hosts)"
