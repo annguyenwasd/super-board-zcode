@@ -177,6 +177,19 @@ for s in super-board-stop.sh super-board-wave-plan.sh \
 done
 rm -rf "$T"
 
+# 5b — an upgrade prunes files the pack stopped shipping: the shared bin and
+#      workflows trees are pack-owned, so a removed script leaves no stale copy.
+T=$(mktemp -d)
+mkdir -p "$T/.agents/bin" "$T/.agents/workflows"
+echo old > "$T/.agents/bin/super-board-removed.sh"
+echo old > "$T/.agents/workflows/removed-workflow.js"
+"$INSTALL" --no-hooks "$T" >/dev/null 2>&1
+[ ! -e "$T/.agents/bin/super-board-removed.sh" ] || fail "upgrade: stale bin script survived"
+[ ! -e "$T/.agents/workflows/removed-workflow.js" ] || fail "upgrade: stale workflow survived"
+[ -f "$T/.agents/bin/super-board-host.sh" ] || fail "upgrade: prune removed a live script"
+[ -f "$T/.agents/workflows/super-board-wave.dwf.ts" ] || fail "upgrade: prune removed a live workflow"
+rm -rf "$T"
+
 # 6 — guard hooks: scripts copied, settings merged into an existing file without
 #     losing its keys or hooks, backed up first, and a second run adds nothing.
 T=$(mktemp -d)
@@ -403,4 +416,4 @@ doc = re.search(r"```json\n(.*?)```", open(sys.argv[1]).read(), re.S).group(1)
 sys.exit(0 if json.loads(doc) == json.load(open(sys.argv[2])) else 1)
 PY
 
-echo "PASS: test-install.sh (25 scenarios)"
+echo "PASS: test-install.sh (26 scenarios)"

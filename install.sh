@@ -206,6 +206,18 @@ for script in $SCRIPTS; do
   fi
 done
 
+# The shared bin/workflows trees are pack-owned: a script the pack stopped
+# shipping must not survive an upgrade as a stale copy.
+prune_stale() {
+  local dir="$1" keep="$2" f name
+  for f in "$dir"/*; do
+    [ -f "$f" ] || continue
+    name=$(basename "$f")
+    case " $keep " in *" $name "*) ;; *) rm -f "$f" ;; esac
+  done
+}
+prune_stale "$SHARED/bin" "$SCRIPTS"
+
 HOOK_FILES=""
 if [ "$HOOKS" -eq 1 ]; then
   # hooks/*.py only: hooks/dev/ holds gates for repos that author skills, never installed.
@@ -241,10 +253,13 @@ done
 # are staged into the persistent .agents/workflows/ store first (the pack itself
 # may be a transient get.sh download), then linked; an existing file is left alone.
 mkdir -p "$SHARED/workflows" "$TARGET/.zcode/workflows"
+DWF_KEEP=""
 for dwf in "$REPO_ROOT"/.zcode/workflows/*.dwf.ts; do
   [ -f "$dwf" ] || continue
   copy_file "$dwf" "$SHARED/workflows/$(basename "$dwf")"
+  DWF_KEEP="$DWF_KEEP $(basename "$dwf")"
 done
+prune_stale "$SHARED/workflows" "$DWF_KEEP"
 dwf_rel=$(relpath "$SHARED/workflows" "$TARGET/.zcode/workflows")
 for dwf in "$REPO_ROOT"/.zcode/workflows/*.dwf.ts; do
   [ -f "$dwf" ] || continue
