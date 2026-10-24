@@ -273,6 +273,19 @@ for host in $HOSTS; do
     esac
   done
 done
+# ZCode loads saved workflows from .zcode/workflows/ (.dwf.ts); ship the pack's
+# definitions when the zcode host is active. An existing file is left alone.
+case " $HOSTS " in *" zcode "*)
+  mkdir -p "$TARGET/.zcode/workflows"
+  dwf_rel=$(relpath "$REPO_ROOT/.zcode/workflows" "$TARGET/.zcode/workflows")
+  for dwf in "$REPO_ROOT"/.zcode/workflows/*.dwf.ts; do
+    [ -f "$dwf" ] || continue
+    dwf_name=$(basename "$dwf"); dwf_dest="$TARGET/.zcode/workflows/$dwf_name"
+    if [ -e "$dwf_dest" ] || [ -L "$dwf_dest" ]; then continue; fi
+    ln -s "$dwf_rel/$dwf_name" "$dwf_dest" 2>/dev/null || copy_file "$dwf" "$dwf_dest"
+  done ;;
+esac
+
 if [ "$COPIED" -eq 1 ]; then
   echo "   ✓ skills, scripts and workflows → .agents/ (copied into $LINKED: no symlinks here)"
 else

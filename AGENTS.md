@@ -54,7 +54,7 @@ left alone; where no symlink can be made the file is copied. Settings and run st
 .agents/
 ├── skills/<all eight>/...
 ├── hooks/guard-*.py, cleanup-wt.py   (wired into settings.json; --no-hooks skips)
-├── workflows/super-board-wave.js, ui-refine-loop.js
+├── workflows/super-board-wave.js, ui-refine-loop.js   (+ .zcode/workflows/*.dwf.ts ZCode ports)
 └── bin/super-board-*.sh (incl. pr-body), super-board-*.py (status, merge-policy, agents-md, settings, setup), super-qa-file-bug.sh, super-review-file-refactor.sh
 ```
 

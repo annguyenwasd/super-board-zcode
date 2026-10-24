@@ -25,11 +25,25 @@ Keep this run choice in each wave and resume command; skip only the Claude usage
 `--codex=<model>` still apply); it counts as explicit `--codex`, Review included.
 Say so once, in the first wave report: `🔁 codex host — running as --codex`. Never improvise a Claude workflow wave in Codex.
 
-**Unknown host halts.** Run the host check before preconditions. Exit 65 (no host sign),
-`opencode` (no OpenCode backend yet) or `zcode` (no ported ZCode wave backend yet — the
-wave workflows target Claude's workflow facade, not ZCode's) halts before any claim, even
+**Unknown host halts.** Run the host check before preconditions. Exit 65 (no host sign)
+or `opencode` (no OpenCode backend yet) halts before any claim, even
 with a Workflow tool present, with one line:
-`⛔ unknown host — set SUPER_BOARD_HOST=claude|codex and re-run`. Never guess a backend.
+`⛔ unknown host — set SUPER_BOARD_HOST=claude|codex|zcode and re-run`. Never guess a backend.
+
+## ZCode runs
+
+The host check printing `zcode` runs the same wave loop on ZCode's own workflow
+facade: the saved workflow `.zcode/workflows/super-board-wave.dwf.ts` (a port of
+`workflows/super-board-wave.js`; install.sh ships it when the zcode host is
+active). Launch with the CreateWorkflow tool, source `saved`, name
+`super-board-wave`, args `{ configPath, cards, tier }` — the same args as the
+Claude launch. `tier` is accepted and unused: every lane runs on the run's
+model, because the haiku/sonnet/opus ladders are Claude-host pricing. The wave
+returns the same `{cards, halted}` summary, so plan, claim, reconcile, manifest,
+board/comment and throttle steps are unchanged. Skill checks inside the wave
+pass `--host zcode` to super-board-skills-ready.py. Skip the Claude usage guard
+(no `rate_limits` signal on ZCode). Stop with `x` on the run (TaskStop); the
+rest of Stop/resume is unchanged.
 
 After the same plan and claim steps, launch this command as a background task:
 `bash .claude/bin/super-board-codex-wave.sh --config <config-path> --cards <claimed-cards.json> --codex[=<model>] --tier <low|medium|high> --output <wave-result.json>`.
@@ -102,6 +116,8 @@ Run the same preconditions as `run.md` §Preconditions, minus PID checks:
    burning tokens):
    `{ echo '(async function(){'; sed 's/^export const meta/const meta/' .claude/workflows/super-board-wave.js; echo '})'; } | node --check --input-type=module`
    With `--codex`, instead require `codex` on PATH and `bash -n` on both Codex launcher scripts.
+   On ZCode no separate check runs: CreateWorkflow typechecks the saved workflow before
+   anything executes, and a diagnostic means nothing ran.
 5. Wave marker FIRST, then the legacy check (lock-before-look closes the
    TOCTOU window where both backends pass each other's checks at once):
    a. Atomically create `.claude/super-board/inflight/workflow-wave.lock`
@@ -143,7 +159,8 @@ Repeat until a done condition or halt gate fires:
    quota: `gh api repos/<o>/<r>/issues/<n>/comments -f body=…` for a comment,
    `gh api -X DELETE repos/<o>/<r>/issues/<n>/assignees -f 'assignees[]=<bot>'`
    to release a claim. Board moves have no REST route; they wait for the reset.
-   **Usage guard** (Claude waves only; skip for `--codex`, explicit or host-switched) — `bash .claude/bin/super-board-usage.sh check --config <config-path>`
+   **Usage guard** (Claude waves only; skip for `--codex`, explicit or host-switched, and
+   for ZCode waves — no Claude `rate_limits` signal there) — `bash .claude/bin/super-board-usage.sh check --config <config-path>`
    (Claude 5-hour and weekly plan usage; threshold `usage_pause_pct`, default 95):
    - exit 0 → launch.
    - exit 10 with `usage_fallback: "codex"` → resolve the selected remaining
@@ -248,8 +265,9 @@ Repeat until a done condition or halt gate fires:
    there is no cross-session claim at all, so never run two orchestrators
    (or /loop re-entries) against the same board without bot_identity.
 4. **Launch** — With `--codex`, or no Workflow tool, or the host check printing `codex`, use
-   "Codex runs" above. The host check printing `claude` uses the Workflow tool; exit 65 or
-   `opencode` never reaches Launch (see "Unknown host halts"). Workflow tool with
+   "Codex runs" above. The host check printing `claude` uses the Workflow tool; `zcode` uses
+   "ZCode runs" above (CreateWorkflow, saved `super-board-wave`); exit 65 or
+   `opencode` never reaches Launch (see "Unknown host halts"). Claude's Workflow tool with
    `scriptPath: .claude/workflows/super-board-wave.js` and
    `args: { configPath, cards, humanApprovesMerge, tier }` (`cards` hydrated after the planner: each
    carries `lane` and `labels`, and a `qa` card skips the Builder). Runs in the background; the

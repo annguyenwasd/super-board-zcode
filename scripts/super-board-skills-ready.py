@@ -456,7 +456,7 @@ class UsageParser(argparse.ArgumentParser):
 def main(argv=None):
     parser = UsageParser(description=__doc__)
     parser.add_argument('--root', required=True)
-    parser.add_argument('--host', required=True, choices=['claude', 'codex'])
+    parser.add_argument('--host', required=True, choices=['claude', 'codex', 'zcode'])
     selection = parser.add_mutually_exclusive_group(required=True)
     selection.add_argument('--cards')
     selection.add_argument('--profile', choices=['setup'])

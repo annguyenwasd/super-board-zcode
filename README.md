@@ -63,7 +63,7 @@ Checks · GitHub · Board · Branch · AGENTS.md · Policies · Bug sources · R
 
 Add cards to `Ready`. The board drains on its own.
 
-On ZCode this step halts today: the wave backend (`workflows/super-board-wave.js`) still targets the Claude workflow facade and its port is not done. `/ui-refine-loop` runs on ZCode and was verified in a real run. Status per host: [supported hosts](docs/hosts.md).
+On ZCode this runs through the ported saved workflow `super-board-wave` (compile-verified; a full-card board run is not yet observed). Every lane runs on the run's model; Claude's tier ladder does not apply. `/ui-refine-loop` was verified in a real ZCode run. Status per host: [supported hosts](docs/hosts.md).
 
 ## How it works
 
