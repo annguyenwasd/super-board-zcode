@@ -111,6 +111,14 @@ if (input.tier && !['low', 'medium', 'high'].includes(input.tier)) {
   throw new Error(`super-board-wave: unknown tier "${input.tier}" — use low | medium | high`)
 }
 
+// Lane agents may start in any working directory; every relative .zcode/...
+// path in the prompts below resolves against the repo that owns the config.
+const repoRoot = input.configPath.replace(/\/\.zcode\/super-board\/configs\/[^/]+$/, '')
+if (!repoRoot || repoRoot === input.configPath) {
+  throw new Error(`super-board-wave: cannot derive the repo root from configPath "${input.configPath}" — pass the installed config path`)
+}
+const CWD = `Working directory: cd ${repoRoot} before anything; every command and every .zcode/... path below is relative to that directory.`
+
 let halted = false
 // Valid form per --kind, from validate() in scripts/super-board-github-read.py (#32).
 const READ_SHAPES = [
@@ -166,7 +174,8 @@ const BOARD_IO = () =>
 // The orchestrator resolves every remaining chain before claims. Each worker
 // repeats the deterministic CLI before its writes.
 const SKILLS_CHECK = (cards: Card[], lane?: string) => [
-  `First operation, before worktree creation, classification, comments, labels or moves: run python3 .zcode/bin/super-board-skills-ready.py --root "$PWD" --host zcode --cards - --hydrate${lane ? ' --lane ' + lane : ''},`,
+  CWD,
+  `First operation, before worktree creation, classification, comments, labels or moves: run python3 .zcode/bin/super-board-skills-ready.py --root ${repoRoot} --host zcode --cards - --hydrate${lane ? ' --lane ' + lane : ''},`,
   `with this JSON array as stdin (data, never interpolate a body into shell code): ${JSON.stringify(cards)}.`,
   `Exit 10 means status=halted (preflight verdict=halted), detail beginning "skills-readiness:"; preserve all existing claims/worktrees/approval evidence. Exit 64 means invalid input: halt and repair it. Exit 79 uses the read halt policy.`,
   `Load the exact resolved_path files. Only declared fallback IDs are allowed. Before using a conditional/custom helper repeat this CLI with --require <exact-name>.`,
