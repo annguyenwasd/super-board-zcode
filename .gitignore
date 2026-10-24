@@ -38,3 +38,6 @@ docs/super-board/runs/**/*.trace.zip
 
 # claude plugin eval output
 evals/results/
+
+# ZCode machine-owned workflow run drafts
+.zcode/workflow-drafts/
