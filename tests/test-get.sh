@@ -66,6 +66,13 @@ out=$(bash "$GET" --target "$T" 2>&1) || fail "install with helpers present fail
 [ ! -s "$NPX_LOG" ] || fail "helper skills already present, but npx was called"
 echo "$out" | grep -q 'already' || fail "summary should say helper skills are already installed"
 
+# 4b — helpers already in the ZCode layout: npx is not called, no lock file needed.
+T="$WORK/t4b"; mkdir -p "$T/.zcode/skills/grilling" "$T/.zcode/skills/tdd"; : > "$NPX_LOG"
+: > "$T/.zcode/skills/grilling/SKILL.md"; : > "$T/.zcode/skills/tdd/SKILL.md"
+out=$(bash "$GET" --target "$T" 2>&1) || fail "install with ZCode helpers present failed"
+[ ! -s "$NPX_LOG" ] || fail "ZCode-layout helpers present, but npx was called"
+echo "$out" | grep -q 'already' || fail "summary should say ZCode helpers are already installed"
+
 # 5 — a target that isn't a directory is refused, and nothing is written.
 : > "$WORK/a-file"
 if bash "$GET" --target "$WORK/a-file" >/dev/null 2>&1; then fail "a file as target was accepted"; fi

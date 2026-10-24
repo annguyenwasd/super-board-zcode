@@ -29,13 +29,14 @@ have() { command -v "$1" >/dev/null 2>&1; }
 usage() { sed -n '2,19p' "${BASH_SOURCE[0]:-$0}" 2>/dev/null | sed 's/^# \{0,1\}//' || true; }
 
 # Matt Pocock's skills count as present when the project's skills-lock.json
-# lists them, or two of their skills already sit in a skills folder Claude reads.
+# lists them, or two of their skills already sit in a skills folder the host reads.
 helper_skills_present() {
   local t="$1" d
   if [ -f "$t/skills-lock.json" ] && grep -q 'mattpocock/skills' "$t/skills-lock.json" 2>/dev/null; then
     return 0
   fi
-  for d in "$t/.claude/skills" "${HOME:-/nonexistent}/.claude/skills"; do
+  for d in "$t/.zcode/skills" "$t/.claude/skills" \
+           "${HOME:-/nonexistent}/.zcode/skills" "${HOME:-/nonexistent}/.claude/skills"; do
     if [ -f "$d/grilling/SKILL.md" ] && [ -f "$d/tdd/SKILL.md" ]; then return 0; fi
   done
   return 1
@@ -159,7 +160,7 @@ except Exception: print("")' 2>/dev/null || true)"
   else
     # stdin is this script when piped into bash, so give npx nothing to read. npx's
     # own chatter goes to a log so the summary stays grouped.
-    if (cd "$target" && npx -y skills@latest add mattpocock/skills --skill '*' -a claude-code -y </dev/null >"$tmp/npx.log" 2>&1); then
+    if (cd "$target" && npx -y skills@latest add mattpocock/skills --skill '*' -a zcode -y </dev/null >"$tmp/npx.log" 2>&1); then
       helper_note="installed"
     else
       helper_note="failed — 🔍 Checks retries it (or: npx skills@latest add mattpocock/skills)"

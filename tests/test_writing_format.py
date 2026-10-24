@@ -74,9 +74,9 @@ def test_subject_regex():
 def test_emoji_map_matches_standard():
     rows = dict((t, e) for e, t in re.findall(r"^\| (\S+) \| `([a-z]+)` \|", STANDARD, flags=re.M))
     assert rows == EMOJI, f"writing-standard.md emoji table drifted: {rows}"
-    claude_md = (ROOT / "CLAUDE.md").read_text(encoding="utf-8")
+    agents_md = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
     for t, e in EMOJI.items():
-        assert f"{e} {t}" in claude_md, f"CLAUDE.md writing table lacks '{e} {t}'"
+        assert f"{e} {t}" in agents_md, f"AGENTS.md writing table lacks '{e} {t}'"
 
 
 def test_standard_examples_are_valid_subjects():

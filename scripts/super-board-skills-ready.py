@@ -276,6 +276,8 @@ class Inventory:
                     if parent == boundary:
                         break
             self.roots = [parent / '.agents/skills' for parent in scoped]
+            if host == 'zcode':
+                self.roots += [self.root / '.zcode/skills', self.home / '.zcode/skills']
             codex_home = (self.home / '.codex') if home else Path(os.environ.get('CODEX_HOME', self.home / '.codex'))
             self.roots += [self.home / '.agents/skills', codex_home / 'skills']
             try:

@@ -8,7 +8,7 @@ by `scripts/super-board-readme-sync.py` from SKILL.md frontmatter and `skills/fa
 
 ## The cardinal rule
 
-**`super-board` is an autonomous trader. The interactive Claude session that invokes `/super-board run` is an *orchestrator*, NOT a worker.** Its only jobs are:
+**`super-board` is an autonomous trader. The interactive session that invokes `/super-board run` is an *orchestrator*, NOT a worker.** Its only jobs are:
 
 1. Verify preconditions (clean git, no orphan workers, GraphQL quota, etc.).
 2. Dispatch per the config's `worker_backend`:

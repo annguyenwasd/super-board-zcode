@@ -79,7 +79,7 @@ BIN = ["super-board-project-verifier.py", "super-board-skills-ready.py", "super-
        "super-board-settings.py", "super-board-setup.py", "super-board-usage.sh", "super-board-pr-body.sh",
        "super-review-file-refactor.sh", "super-qa-file-bug.sh", "super-board-stop.sh"]
 WORKFLOWS = ["super-board-wave.js", "ui-refine-loop.js"]
-HELPERS_CMD = "npx -y skills@latest add mattpocock/skills --skill '*' -a claude-code -y"
+HELPERS_CMD = "npx -y skills@latest add mattpocock/skills --skill '*' -a zcode -y"
 
 # System tools: why the board needs each, and the install command per OS family.
 TOOLS = {
