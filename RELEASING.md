@@ -21,7 +21,7 @@ If code must change, make a new version commit and tag instead of moving an exis
 
 `tests/run-safety.sh` discovers every `tests/test-*.sh` and `tests/test_*.py` suite. This
 includes the merge gate, guard hooks, installers, upgrade setup, preflight, dependencies,
-usage limits, writing format, cleanup and workflow behavior tests. A new matching suite
+writing format, cleanup and workflow source-contract tests. A new matching suite
 joins CI automatically. The runner prints every result and returns nonzero if any suite
 fails; it also refuses an empty suite. Some Python tests have shell wrappers and therefore
 run twice. Keep these tests offline and deterministic.
