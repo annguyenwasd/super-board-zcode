@@ -31,3 +31,11 @@ other value.
 
 - ZCode: env of a ZCode 3.16.3 desktop shell, 2026-10-24: `ZCODE_APP_VERSION`,
   `ZCODE_ENV`, `ZCODE_BASE_URL`, `ZCODE_BUILD_COMMIT_ID`.
+
+## Integration run 2026-10-25 (post-port)
+
+- Date: 2026-10-25 (Asia/Ho_Chi_Minh), the first board run after `dad6f40` made the pack ZCode-only.
+- Host: ZCode 3.16.3 (`ZCODE_APP_VERSION=3.16.3`), workflow backend, board `super-board self-test` (#2), base `selftest`.
+- Scope: one card (#5), Ready → Done through the wave lanes build → QA → review.
+- Outcome: this card's PR passed QA and review and squash-merged into `selftest` through the merge gate; no other cards were in the run.
+- Iteration 2 (qa card #7) the same night: Ready → QA → Review → Done, PR #8 merged `1947a9f`; both port fixes mutation-verified in-lane.

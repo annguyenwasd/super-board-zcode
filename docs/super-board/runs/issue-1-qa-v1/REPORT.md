@@ -1,6 +1,6 @@
 # QA report — issue #1 · v1
 
-- **Worktree:** `.zcode/worktrees/issue-1-qa` on `issue-1-test-install-zcode-dwf-shipping` @ `06824ed` (= PR #2 head at QA start)
+- **Worktree:** `.claude/worktrees/issue-1-qa` on `issue-1-test-install-zcode-dwf-shipping` @ `06824ed` (= PR #2 head at QA start)
 - **Env:** darwin 25.5.0 arm64, `bash` (macOS system bash)
 - **Scope:** the Builder diff — `tests/test-install.sh` scenario 14b (+ scenario-count line 24 → 25). No installer code changed.
 
