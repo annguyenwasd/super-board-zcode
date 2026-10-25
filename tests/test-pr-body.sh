@@ -96,6 +96,17 @@ RC=0; run --pr 7 --block status --body-file "$WORK/risk.md" >/dev/null || RC=$?;
 RC=0; run --pr 7 --block nope --expect-head x --body-file "$WORK/risk.md" >/dev/null || RC=$?; is "block is an enum" 64 "$RC"
 RC=0; run --pr 7 --block ac --expect-head x >/dev/null || RC=$?; is "content file required" 64 "$RC"
 OUT=$(run --pr 7 --block ac --dry-run --body-file "$WORK/risk.md"); has "dry run prints the body" "$OUT" "<!-- sb:ac -->"
+
+# Marker lines inside the incoming file are stripped, never spliced: a lane
+# that wraps its body-file in the markers itself must not double them
+# (regression: PR #6 shipped sb:ac and /sb:status twice).
+printf '<!-- sb:status -->\nmerged content\n<!-- /sb:status -->\n' > "$WORK/wrapped.md"
+OUT=$(run --pr 7 --block status --expect-head 3f9c2a1 --body-file "$WORK/wrapped.md" --dry-run)
+COUNT_OPEN=$(printf '%s\n' "$OUT" | grep -c '^<!-- sb:status -->$')
+COUNT_CLOSE=$(printf '%s\n' "$OUT" | grep -c '^<!-- /sb:status -->$')
+is "wrapped file: exactly one opener" 1 "$COUNT_OPEN"
+is "wrapped file: exactly one closer" 1 "$COUNT_CLOSE"
+has "wrapped file: content survives" "$OUT" "merged content"
 hasnt "dry run edits nothing" "$(cat "$GH_LOG")" "PATCH"
 
 echo "── skeleton"

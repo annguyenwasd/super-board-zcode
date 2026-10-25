@@ -93,11 +93,16 @@ printf '%s' "$META" | jq -r '.body // ""' > "$OLD_TMP"
 
 MODE_FLAG=replace; [ -n "$APPEND_FILE" ] && MODE_FLAG=append
 python3 - "$OLD_TMP" "$SRC" "$BLOCK" "$MODE_FLAG" "$BLOCKS" > "$NEW_TMP" <<'PY' || die "could not splice the block" 70
+import re
 import sys
 old_path, src_path, block, mode, order = sys.argv[1:6]
 order = order.split()
 body = open(old_path, encoding="utf-8").read()
 content = open(src_path, encoding="utf-8").read().strip("\n")
+# A block's content may never contain marker lines: a lane that wraps its
+# body-file in the markers itself would double them (seen live on PR #6).
+content = "\n".join(l for l in content.split("\n")
+                    if not re.match(r"^\s*<!--\s*/?sb:[a-z]+\s*-->\s*$", l)).strip("\n")
 open_m, close_m = f"<!-- sb:{block} -->", f"<!-- /sb:{block} -->"
 
 def find(name, text):
