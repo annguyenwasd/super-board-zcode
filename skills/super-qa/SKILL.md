@@ -99,7 +99,7 @@ orchestrator pausing on `AskUserQuestion`.
 - Critical-path HUMAN GATE (worker status 4) — production money flow
   red >2 iters. Mandatory halt per skill contract.
 - Worker status 2 / 3 with an error that isn't a script bug
-  (e.g. Anthropic API down, a production 503, auth credential rejected).
+  (e.g. the model API is down, a production 503, auth credential rejected).
 - Working tree dirty with changes the orchestrator didn't make (could be
   user's in-flight work).
 - Anything that would delete or rewrite history (`git reset --hard`,
@@ -618,6 +618,8 @@ shipped code.
 ## super-board integration
 
 When invoked by super-board (env `SUPER_BOARD_RUN=1` or invocation contains "super-board run"):
+
+Dispatcher scripts are invoked where the install put them: project install → `.zcode/bin/<script>`; user install (`install.sh --user`) → `~/.zcode/bin/<script>`. Paths below show the project form.
 
 - **GitHub budget** — every "move card" is `.zcode/bin/super-board-card.sh --config <cfg> move <N> <Status>` (1 GraphQL point; `gh project item-list` / `field-list` cost ~100–200). Comments, labels and PR reads go over REST; [rate-limit-etiquette.md](../super-board/references/rate-limit-etiquette.md) → "Price list" has the calls.
 

@@ -29,6 +29,14 @@ curl -fsSL https://raw.githubusercontent.com/annguyenwasd/super-board-zcode/main
 > [!IMPORTANT]
 > There is no ZCode plugin and no `/plugin` command here. This installer works as plain skills: it copies skills and scripts into `.agents/`, links them into `.zcode/`, ships the `.dwf.ts` workflows into `.zcode/workflows/`, and writes the guard hooks into `.zcode/config.json`. Run state stays in `.zcode/super-board/`. Needs ZCode, `gh`, `jq`, bash 3.2+ and Python 3.9+; the installer checks. See [the host doc](docs/hosts.md) for the tested version and gaps.
 
+To install for your user instead of one project, pass `--user`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/annguyenwasd/super-board-zcode/main/get.sh | bash -s -- --user
+```
+
+User scope puts the real files in `~/.agents/{skills,bin,hooks,workflows}`, links them into `~/.zcode/`, and merges the guard hooks into `~/.zcode/cli/config.json`, so the guards run in every project. Nothing lands in any project folder; onboard still runs per project.
+
 Optional post-run learning can delegate an already installed `calibrate` skill after
 verified selected work completes. It applies only to explicitly permitted existing
 canonical skill files; the package bundles no private skill. See

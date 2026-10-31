@@ -7,7 +7,7 @@ protected-push guard (opt-in) and the dev-only skill-eval gate.
 
 - `guard-worktree-path.py` — PreToolUse `Bash`: denies `git worktree add|move` whose target resolves outside `<repo>/.zcode/worktrees/` (honours `cd X &&`, `git -C X`).
 - `guard-secrets.py` — PreToolUse `Bash|Read|Grep`: denies reading or piping dotenv files, SSH keys, `.npmrc`, `credentials(.json)`, service-account JSON and `.pem`; `.env.example` stays readable. One plain call to `super-board-env-check.sh KEY…` is allowed: it prints present / empty / missing per key and never a value (no pipe, chain or redirect may ride along).
-- `guard-key-literals.py` — PreToolUse `Edit|MultiEdit|Write|NotebookEdit|Bash`: denies writing a live-looking API key into a file; PostToolUse `Edit|MultiEdit|Write|NotebookEdit`: flags one already on disk. Reports line numbers, never the value.
+- `guard-key-literals.py` — PreToolUse `Edit|Write|Bash`: denies writing a live-looking API key into a file; PostToolUse `Edit|Write`: flags one already on disk. Reports line numbers, never the value.
 - `guard-delete-outside.py` — PreToolUse `Bash`: denies `rm`, `rmdir`, `unlink`, `find … -delete` / `-exec rm` and `git clean` whose target resolves outside `${ZCODE_PROJECT_DIR}`, and always `/` or `~` itself (honours `cd X &&`, `git -C X`, `~`, `$HOME`). Inside `/tmp`, `/private/tmp`, `/var/folders` and `$TMPDIR` stays allowed. A path whose value is only known at run time (`$(…)`, a variable set earlier in the same command) is allowed.
 - `cleanup-wt.py` — SessionStart (`--auto`): when a base branch tip moved since the last session, removes worktrees and local branches already merged into it. The merge gate also runs it with `--post-merge` after every merge. Never deletes unmerged work (a dirty worktree on a merged branch is wip-committed and its branch kept), never touches bases or the worktree it runs in, and writes a recovery TSV to `<git-common-dir>/cleanup-wt/<timestamp>.tsv` before acting. Restore with `git branch <name> <sha>`. A manual dry run (`python3 .zcode/hooks/cleanup-wt.py`, then `--apply`) still works.
 
@@ -15,11 +15,12 @@ protected-push guard (opt-in) and the dev-only skill-eval gate.
 
 `install.sh` does this for you: it copies the scripts to `.zcode/hooks/` in the target
 project and merges the block below (kept in `settings-snippet.json`) into
-`.zcode/settings.json`, backing the file up first and never adding a command twice.
+`.zcode/config.json`, backing the file up first and never adding a command twice.
 `./install.sh --no-hooks` skips both (and with it the merge gate's post-merge cleanup, which needs `cleanup-wt.py`). By hand, copy the scripts and merge this:
 
 ```json
 {
+  "_comment": "Intermediate representation, not ZCode config: scripts/super-board-settings.py zcode-hooks re-nests these hooks.<Event> entries into the workspace config's hooks.events.<Event> and sets hooks.enabled. Keep hooks/README.md's copy of this block identical.",
   "hooks": {
     "PreToolUse": [
       {
@@ -45,7 +46,7 @@ project and merges the block below (kept in `settings-snippet.json`) into
         ]
       },
       {
-        "matcher": "Edit|MultiEdit|Write|NotebookEdit|Bash",
+        "matcher": "Edit|Write|Bash",
         "hooks": [
           {
             "type": "command",
@@ -56,7 +57,7 @@ project and merges the block below (kept in `settings-snippet.json`) into
     ],
     "PostToolUse": [
       {
-        "matcher": "Edit|MultiEdit|Write|NotebookEdit",
+        "matcher": "Edit|Write",
         "hooks": [
           {
             "type": "command",

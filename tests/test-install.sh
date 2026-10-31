@@ -409,6 +409,84 @@ done
 echo "$OUT" | grep -q "copied" || fail "no-symlink install should say it copied, got: $OUT"
 rm -rf "$T" "$FAKE"
 
+# 20 — --user: installs into the invoking user's HOME, never the working
+#      directory. Every run uses a scratch HOME (env only); the real HOME and
+#      the project the shell sits in must come out untouched.
+U_INSTALL="$(cd .. && pwd)/install.sh"
+T=$(mktemp -d); P=$(mktemp -d)
+printf '# AGENTS.md\n- mine\n<!-- super-board:begin v0.0.1 -->\nold\n<!-- super-board:end -->\n' > "$P/AGENTS.md"
+BEFORE_P=$(snapshot "$P")
+OUT=$( cd "$P" && HOME="$T" "$U_INSTALL" --user 2>&1 ) || fail "user install failed: $OUT"
+echo "$OUT" | grep -qE "guard hooks → ~/\.zcode/cli/config\.json \(new file\)" \
+  || fail "user: guard line should name the user config, got: $OUT"
+[ "$(snapshot "$P")" = "$BEFORE_P" ] || fail "user install wrote into the working directory"
+for s in $ALL_SKILLS; do
+  [ -f "$T/.agents/skills/$s/SKILL.md" ] || fail "user: $s did not land in the ~/.agents store"
+  [ "$T/.zcode/skills/$s/SKILL.md" -ef "$T/.agents/skills/$s/SKILL.md" ] || fail "user: $s is not linked into ~/.zcode"
+done
+[ -f "$T/.agents/bin/super-board-host.sh" ] && [ "$T/.zcode/bin/super-board-host.sh" -ef "$T/.agents/bin/super-board-host.sh" ] \
+  || fail "user: bin scripts missing or not linked"
+[ -f "$T/.zcode/workflows/super-board-wave.dwf.ts" ] || fail "user: workflow was not installed"
+[ ! -e "$T/.zcode/config.json" ] || fail "user: must not write the project-scope config path"
+
+# 20b — the user-scope hooks config: enabled, commands address the store through
+#       "$HOME" (shell-executed, so a moved home never leaves dead paths), no
+#       absolute or project-scope command path left behind.
+S="$T/.zcode/cli/config.json"
+jq -e '.hooks.enabled == true' "$S" >/dev/null || fail "user: hooks must end up enabled"
+jq -e --arg h '$HOME/.agents/hooks/' '[.hooks.events[][].hooks[].command | select(contains($h))] | length > 0' "$S" >/dev/null \
+  || fail "user: hook commands must use the $HOME indirection to the ~/.agents store"
+jq -e --arg p "$T" '[.hooks.events[][].hooks[].command | select(contains($p))] | length == 0' "$S" >/dev/null \
+  || fail "user: an absolute home path leaked into the user config"
+jq -e --arg c 'python3 "$HOME/.agents/hooks/guard-worktree-path.py"' \
+  '[.hooks.events[][].hooks[].command] | index($c) != null' "$S" >/dev/null \
+  || fail 'user: guard command should be python3 "$HOME/.agents/hooks/guard-worktree-path.py"'
+jq -e '[.hooks.events[][].hooks[].command | select(contains(".zcode/hooks/"))] | length == 0' "$S" >/dev/null \
+  || fail "user: a project-scope command leaked into the user config"
+for h in guard-worktree-path guard-secrets guard-key-literals guard-delete-outside; do
+  jq -e --arg h "$h" '[.hooks.events[][].hooks[].command | select(contains($h))] | length > 0' "$S" >/dev/null || fail "user: $h not wired"
+done
+jq -e '[.hooks.events.SessionStart[].hooks[].command | select(contains("cleanup-wt.py\" --auto --fetch"))] | length == 1' "$S" >/dev/null \
+  || fail "user: cleanup-wt not wired, or its flags were swallowed into the quoted path"
+
+# 20c — a second --user run changes nothing (tree, user config), adds no duplicates.
+BEFORE=$(snapshot "$T"); CFG_BEFORE=$(cat "$S")
+OUT=$( cd "$P" && HOME="$T" "$U_INSTALL" --user 2>&1 ) || fail "second user install failed"
+[ "$(snapshot "$T")" = "$BEFORE" ] || fail "second user install changed the tree: $(diff <(echo "$BEFORE") <(snapshot "$T"))"
+[ "$(cat "$S")" = "$CFG_BEFORE" ] || fail "second user install changed the user config"
+echo "$OUT" | grep -q "already present" || fail "second user install should report nothing to change, got: $OUT"
+jq -e '[.hooks.events[] | [.[].hooks[].command] as $c | ($c | length) == ($c | unique | length)] | all' "$S" >/dev/null \
+  || fail "user: a hook command appears twice after re-run"
+rm -rf "$T" "$P"
+
+# 20d — --user with a target argument is refused before anything is installed.
+T=$(mktemp -d); P=$(mktemp -d)
+if OUT=$( cd "$P" && HOME="$T" "$U_INSTALL" --user "$P" 2>&1 ); then fail "--user with a target argument should be refused"; fi
+echo "$OUT" | grep -q "no target project argument" || fail "--user + target refusal should be explained, got: $OUT"
+[ ! -e "$T/.agents" ] && [ ! -e "$T/.zcode" ] || fail "a refused --user install must install nothing"
+rm -rf "$T" "$P"
+
+# 20e — --no-hooks --user: skills land, the user's own CLI config is untouched.
+T=$(mktemp -d); P=$(mktemp -d)
+mkdir -p "$T/.zcode/cli"
+CFG='{"hooks":{"enabled":false,"events":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"echo mine"}]}]}}}'
+printf '%s' "$CFG" > "$T/.zcode/cli/config.json"
+( cd "$P" && HOME="$T" "$U_INSTALL" --no-hooks --user >/dev/null 2>&1 ) || fail "no-hooks user install failed"
+[ "$(cat "$T/.zcode/cli/config.json")" = "$CFG" ] || fail "--no-hooks --user must not touch the user config"
+[ ! -e "$T/.zcode/hooks" ] || fail "--no-hooks --user still installed hooks"
+[ -f "$T/.agents/skills/super-board/SKILL.md" ] || fail "--no-hooks --user must still install the skills"
+rm -rf "$T" "$P"
+
+# 20f — an older user-scope install is recorded in ~/.zcode/super-board/upgrade.json.
+T=$(mktemp -d); P=$(mktemp -d)
+mkdir -p "$T/.zcode/skills/super-board" "$T/.zcode/skills/super-build"
+echo "1.8.2" > "$T/.zcode/skills/super-board/VERSION"
+OUT=$( cd "$P" && HOME="$T" "$U_INSTALL" --no-hooks --user 2>&1 ) || fail "user upgrade failed: $OUT"
+jq -e --arg v "$(cat ../VERSION)" '.from == "1.8.2" and .to == $v' "$T/.zcode/super-board/upgrade.json" >/dev/null \
+  || fail "user: upgrade.json wrong: $(cat "$T/.zcode/super-board/upgrade.json" 2>&1)"
+echo "$OUT" | grep -q "⬆️  upgrade from 1.8.2" || fail "user: upgrade should be one grouped line, got: $OUT"
+rm -rf "$T" "$P"
+
 # 9 — the snippet the installer merges is the one hooks/README.md documents.
 python3 - ../hooks/README.md ../hooks/settings-snippet.json <<'PY' || fail "hooks/README.md snippet and hooks/settings-snippet.json differ"
 import json, re, sys
@@ -416,4 +494,4 @@ doc = re.search(r"```json\n(.*?)```", open(sys.argv[1]).read(), re.S).group(1)
 sys.exit(0 if json.loads(doc) == json.load(open(sys.argv[2])) else 1)
 PY
 
-echo "PASS: test-install.sh (26 scenarios)"
+echo "PASS: test-install.sh (32 scenarios)"

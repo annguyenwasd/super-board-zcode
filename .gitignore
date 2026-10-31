@@ -19,6 +19,7 @@ __pycache__/
 .zcode/super-board/active
 .zcode/super-board/collect/
 .zcode/super-board/inflight/
+.zcode/super-board/github-halt-*.json
 .zcode/super-board/migrations/
 .zcode/worktrees/
 .worktrees/

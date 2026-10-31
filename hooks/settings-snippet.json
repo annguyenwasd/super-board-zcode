@@ -1,4 +1,5 @@
 {
+  "_comment": "Intermediate representation, not ZCode config: scripts/super-board-settings.py zcode-hooks re-nests these hooks.<Event> entries into the workspace config's hooks.events.<Event> and sets hooks.enabled. Keep hooks/README.md's copy of this block identical.",
   "hooks": {
     "PreToolUse": [
       {
@@ -24,7 +25,7 @@
         ]
       },
       {
-        "matcher": "Edit|MultiEdit|Write|NotebookEdit|Bash",
+        "matcher": "Edit|Write|Bash",
         "hooks": [
           {
             "type": "command",
@@ -35,7 +36,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Edit|MultiEdit|Write|NotebookEdit",
+        "matcher": "Edit|Write",
         "hooks": [
           {
             "type": "command",

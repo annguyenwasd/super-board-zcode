@@ -17,6 +17,11 @@ description: GitHub-Project-driven autonomous pipeline. Five verbs — onboard, 
 
 If invoked with no verb, ask which one.
 
+`install.sh --user` installs the skills, worker helpers and guard hooks user-wide
+(`~/.zcode/skills`, `~/.zcode/bin`, user config), so these verbs work in any
+project; each project still owns its `.zcode/super-board/` state, worktrees and
+GitHub Project — onboard creates those in the project.
+
 ## Routing
 
 | If user says | Load |

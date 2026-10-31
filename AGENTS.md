@@ -46,7 +46,10 @@ the `.dwf.ts` workflow sources into `.zcode/workflows/`. A real-directory `.zcod
 install is replaced by links on upgrade; a user's own links and anything not
 super-board's are left alone; where no symlink can be made the file is copied. Run
 state lives in `.zcode/super-board/`; guard hooks are wired into `.zcode/config.json`
-(ZCode `hooks.events` shape, `enabled: true`).
+(ZCode `hooks.events` shape, `enabled: true`). `--user` installs for the invoking
+user instead — real files in `~/.agents/{skills,bin,hooks,workflows}`, links in
+`~/.zcode/`, guards merged into `~/.zcode/cli/config.json` — and writes nothing
+into any project.
 
 ```
 .agents/

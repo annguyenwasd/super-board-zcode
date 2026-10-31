@@ -117,7 +117,11 @@ const repoRoot = input.configPath.replace(/\/\.zcode\/super-board\/configs\/[^/]
 if (!repoRoot || repoRoot === input.configPath) {
   throw new Error(`super-board-wave: cannot derive the repo root from configPath "${input.configPath}" — pass the installed config path`)
 }
-const CWD = `Working directory: cd ${repoRoot} before anything; every command and every .zcode/... path below is relative to that directory.`
+// User scope (install.sh --user) keeps the bin helpers and skills in ~/.zcode;
+// run state, worktrees and the config stay per-project. This script has no
+// filesystem access (facade rules), so each lane agent resolves which copy
+// exists at run time.
+const CWD = `Working directory: cd ${repoRoot} before anything; every command and every .zcode/... path below is relative to that directory. User-scope install (install.sh --user): a bin script or skill file the project's .zcode/ lacks lives at the same path under ~/.zcode/ — run or read that one instead.`
 
 let halted = false
 // Valid form per --kind, from validate() in scripts/super-board-github-read.py (#32).

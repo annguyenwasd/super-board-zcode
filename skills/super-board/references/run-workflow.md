@@ -11,7 +11,13 @@ unchanged.
 before preconditions. Exit 65 (no host sign) halts before any claim, with one
 line: `⛔ unknown host — set SUPER_BOARD_HOST=zcode and re-run`. Never guess.
 
-The wave is launched with args `{ configPath, cards, humanApprovesMerge }` —
+**User scope.** After an `install.sh --user` install the helpers live in
+`~/.zcode/bin` and the skills in `~/.zcode/skills`: run every `.zcode/bin/...`
+command below from `~/.zcode/bin/...` when the project has no `.zcode/bin`.
+Run state (`.zcode/super-board/`, `.zcode/worktrees/`), the config and the
+GitHub Project stay per-project either way.
+
+The wave is launched with args `{ configPath, cards, tier }` —
 `cards` hydrated after the planner: each carries `lane` and `labels`, and a
 `qa` card skips the Builder. The wave returns a `{cards, halted}` summary, so
 plan, claim, reconcile, manifest, board/comment and throttle steps are
@@ -176,10 +182,10 @@ Repeat until a done condition or halt gate fires:
    there is no cross-session claim at all, so never run two orchestrators
    (or /loop re-entries) against the same board without bot_identity.
 4. **Launch** — CreateWorkflow with source `saved`, name `super-board-wave`,
-   `args: { configPath, cards, humanApprovesMerge }`. Runs in the background;
-   the orchestrator stays responsive. `humanApprovesMerge` comes from the
-   config; when false the workflow serializes Review-lane agents (merge-race
-   guard, execution side).
+   `args: { configPath, cards, tier }`. Runs in the background;
+   the orchestrator stays responsive. Review-lane merge serialization lives
+   in super-board-merge-gate.sh (atomic mkdir lock), not in the workflow
+   args.
 5. **Reconcile** (when the run completes) — read the returned `cards`
    summary. If `halted: true`, any card is `halted`, or the GitHub helper's `--check`
    fails, preserve claims and stop. For verification-readiness (exit 9), repair

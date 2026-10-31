@@ -292,6 +292,8 @@ will not stack duplicates.
 
 When invoked by super-board (env `SUPER_BOARD_RUN=1` or invocation contains "super-board run"):
 
+Dispatcher scripts are invoked where the install put them: project install → `.zcode/bin/<script>`; user install (`install.sh --user`) → `~/.zcode/bin/<script>`. Paths below show the project form.
+
 ### State protocol
 - Read from issue + PR comments + PR review threads.
 - **GitHub budget** — every "move card" is `.zcode/bin/super-board-card.sh --config <cfg> move <N> <Status>` (1 GraphQL point; `gh project item-list` / `field-list` cost ~100–200). Comments, labels and PR reads go over REST; [rate-limit-etiquette.md](../super-board/references/rate-limit-etiquette.md) → "Price list" has the calls.

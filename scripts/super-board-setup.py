@@ -17,10 +17,13 @@ so step 1 (Checks) can say "Fixed for you" without asking anything.
 Every command prints one JSON object. `--text` on check/fix prints the short ✓ lists the
 onboard screen shows instead.
 
-What `fix` does, with NO question (all of it backed up first to
-.zcode/super-board/backup/<ts>/):
+What `fix` does, with NO question (everything that exists is backed up first to
+.zcode/super-board/backup/<ts>/; `backup` is null when there was nothing):
   - installs or refreshes skills, .zcode/bin scripts, workflows, guard hooks and their
-    .zcode/config.json entries (runs the pack's install.sh) when any is missing or older
+    .zcode/config.json entries (runs the pack's install.sh — --user for a home root)
+    when any is missing or older
+  - drops guard commands whose script no longer exists (guards renamed or pruned by
+    an upgrade), then re-wires the pack's fresh commands
   - removes the folders of skills that no longer exist: super-refine, cleanup-wt, arch-loop
   - migrates every .zcode/super-board/configs/*.json to the v3 keys (migrate-config), and
     writes a missing top-level `host` ("zcode"; check flags any other value)
@@ -54,6 +57,7 @@ import json
 import os
 import platform
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -190,6 +194,12 @@ def is_git_repo(root):
     return have("git") and run(["git", "rev-parse", "--is-inside-work-tree"], cwd=root).returncode == 0
 
 
+def home_scoped(root):
+    """The root's own scope decides: $HOME itself is the user surface, every
+    other root is a project surface. The two are never mixed."""
+    return os.path.abspath(root) == os.path.abspath(os.path.expanduser("~"))
+
+
 def snippet_commands(pack):
     snip = load_json(os.path.join(pack, "hooks", "settings-snippet.json")) if pack else None
     if not snip:
@@ -197,12 +207,103 @@ def snippet_commands(pack):
     return [h["command"] for entries in snip["hooks"].values() for e in entries for h in e.get("hooks", [])]
 
 
-def settings_commands(root, host="zcode"):
-    # zcode wires the same guard commands one level deeper: .zcode/config.json
-    # hooks.events (written by super-board-settings.py zcode-hooks).
-    s = load_json(os.path.join(root, ".zcode", "config.json")) or {}
+def config_commands(path):
+    # zcode wires the guard commands one level deeper: hooks.events in
+    # .zcode/config.json (project) or ~/.zcode/cli/config.json (user scope).
+    s = load_json(path) or {}
     events = ((s.get("hooks") or {}).get("events") or {}).values()
-    return {h.get("command") for ev in events for e in ev for h in e.get("hooks", [])}
+    return {h.get("command") for ev in events for e in ev for h in e.get("hooks", [])
+            if isinstance(h, dict)}
+
+
+def normalize_user_command(cmd):
+    """Map a user-scope command back to the canonical project form — the exact
+    inverse of install.sh's --user rewrite, so the wiring check compares against
+    the same set the snippets merge. Legacy absolute-store paths normalize too."""
+    m = re.match(r'^python3 "[^"]*/\.agents/hooks/([^"]+)"(.*)$', cmd)
+    if m:
+        return f'python3 "${{ZCODE_PROJECT_DIR}}"/.zcode/hooks/{m.group(1)}{m.group(2)}'
+    m = re.match(r'^cd "\$\{ZCODE_PROJECT_DIR\}" && python3 "[^"]*/\.agents/hooks/([^"]+)"(.*)$', cmd)
+    if m:
+        return f'cd "${{ZCODE_PROJECT_DIR}}" && python3 .zcode/hooks/{m.group(1)}{m.group(2)}'
+    return cmd
+
+
+def broken_hook_paths(path, root):
+    """Hook commands in a config.json whose script path no longer resolves
+    (a moved home, a deleted store): {command: resolved-path}. ZCode shell-executes
+    command hooks, so ${ZCODE_PROJECT_DIR} resolves against the project, $HOME/~
+    against the environment; a leftover ${VAR} is unverifiable here and counts as
+    broken, never resolved from the checker's environment. Tokens without a "/"
+    (flags, -c) and commands without an interpreter-then-path shape are skipped —
+    nothing to verify there."""
+    doc = load_json(path)
+    if not isinstance(doc, dict):
+        return {}
+    events = ((doc.get("hooks") or {}).get("events") or {}).values()
+    broken = {}
+    for ev in events:
+        for entry in ev:
+            for h in entry.get("hooks", []):
+                cmd = h.get("command") if isinstance(h, dict) else None
+                if not isinstance(cmd, str) or h.get("type", "command") != "command":
+                    continue
+                try:
+                    toks = shlex.split(cmd)
+                except ValueError:
+                    toks = cmd.split()
+                cands = [toks[i + 1] for i, t in enumerate(toks)
+                         if t in ("python3", "python", "bash", "sh") and i + 1 < len(toks)]
+                if not cands and toks and "/" in toks[0]:
+                    cands = [toks[0]]  # a direct ./script or /abs/script invocation
+                for raw in cands:
+                    if "/" not in raw:
+                        continue
+                    p = raw.replace("${ZCODE_PROJECT_DIR}", root)
+                    if "${" in p:
+                        broken[cmd] = p  # a ${VAR} the checker cannot resolve is not green
+                        continue
+                    p = os.path.expanduser(p)
+                    p = os.path.expandvars(p)
+                    if not os.path.isabs(p):
+                        p = os.path.join(root, p)  # hook commands run in the project
+                    if not os.path.exists(p):
+                        broken[cmd] = p
+    return broken
+
+
+def pack_owned_hook(path):
+    """A path into the pack's own hook store (.zcode/hooks/ or .agents/hooks/)
+    holding one of its guards (guard-*.py, cleanup-wt.py). Anything else is
+    foreign and stays."""
+    return bool(re.search(r"/\.(?:zcode|agents)/hooks/(?:guard-[^/]+\.py|cleanup-wt\.py)$", path or ""))
+
+
+def prune_dead_hook_commands(cfg_path, dead):
+    """Drop pack-owned hook commands whose script path no longer resolves —
+    stranded when an upgrade renames or prunes a guard from the store. `dead` is
+    a {command: resolved-path} map from broken_hook_paths; foreign commands are
+    never touched. Returns the number removed."""
+    doc = load_json(cfg_path)
+    if not isinstance(doc, dict) or not dead:
+        return 0
+    removed = 0
+    for entries in ((doc.get("hooks") or {}).get("events") or {}).values():
+        for entry in entries:
+            hooks = entry.get("hooks")
+            if not isinstance(hooks, list):
+                continue
+            kept = []
+            for h in hooks:
+                cmd = h.get("command") if isinstance(h, dict) else None
+                if isinstance(cmd, str) and cmd in dead and pack_owned_hook(dead[cmd]):
+                    removed += 1
+                    continue
+                kept.append(h)
+            entry["hooks"] = kept
+    if removed:
+        write_json(cfg_path, doc)
+    return removed
 
 
 # ── config migration ───────────────────────────────────────────────────────────
@@ -284,20 +385,49 @@ def installed_version(root):
 
 def check(root, pack, host="zcode", home=None, catalog=None):
     zcode = os.path.join(root, ".zcode")
+    at_home = home_scoped(root)
+    home_zcode = os.path.join(os.path.expanduser("~"), ".zcode")
     pack_version = read(os.path.join(pack, "VERSION")) if pack else None
     have_v = installed_version(root)
     upgrade_rec = load_json(os.path.join(zcode, "super-board", "upgrade.json")) or {}
     missing = []
-    missing += [f"skill {s}" for s in SKILLS if not os.path.isfile(os.path.join(zcode, "skills", s, "SKILL.md"))]
-    missing += [f"script {b}" for b in BIN if not os.path.isfile(os.path.join(zcode, "bin", b))]
-    missing += [f"workflow {w}" for w in WORKFLOWS if not os.path.isfile(os.path.join(zcode, "workflows", w))]
+    # Must-haves: the root's own .zcode first. A project may fall back to the
+    # user surface, because a --user install serves every project; at home the
+    # two are the same directory, so home scope probes it alone.
+    surfaces = [zcode] if at_home else [zcode, home_zcode]
+    probe = lambda *parts: any(os.path.exists(os.path.join(s, *parts)) for s in surfaces)
+    missing += [f"skill {s}" for s in SKILLS if not probe("skills", s, "SKILL.md")]
+    missing += [f"script {b}" for b in BIN if not probe("bin", b)]
+    missing += [f"workflow {w}" for w in WORKFLOWS if not probe("workflows", w)]
     hook_files = sorted(os.path.basename(p) for p in glob.glob(os.path.join(pack, "hooks", "*.py"))) if pack else []
-    missing += [f"hook {h}" for h in hook_files if not os.path.isfile(os.path.join(zcode, "hooks", h))]
-    wired = settings_commands(root, host)
-    unwired = [c for c in snippet_commands(pack) if c not in wired]
-    if unwired:
-        fname = ".zcode/config.json"
-        missing.append(f"{fname}: {len(unwired)} guard entr{'y' if len(unwired) == 1 else 'ies'}")
+    missing += [f"hook {h}" for h in hook_files if not probe("hooks", h)]
+    # Hook config: the root's own scope decides, and the two surfaces are never
+    # mixed. $HOME reads ~/.zcode/cli/config.json (user-form commands normalized
+    # back to the canonical project forms); any other root reads only its own
+    # .zcode/config.json — an absent file is loud, never a silent user fallback.
+    snips = snippet_commands(pack)
+    if at_home:
+        fname, cfg_path = "~/.zcode/cli/config.json", os.path.join(home_zcode, "cli", "config.json")
+    else:
+        fname, cfg_path = ".zcode/config.json", os.path.join(zcode, "config.json")
+    if snips and not os.path.isfile(cfg_path):
+        missing.append(f"{fname}: no hook config wired — rerun install.sh")
+    elif snips:
+        wired = ({normalize_user_command(c) for c in config_commands(cfg_path)} if at_home
+                 else config_commands(cfg_path))
+        unwired = [c for c in snips if c not in wired]
+        if unwired:
+            missing.append(f"{fname}: {len(unwired)} guard entr{'y' if len(unwired) == 1 else 'ies'}")
+    # Loud detection for dead hook commands (moved home, deleted store), scanned
+    # on the same single surface the wiring check used.
+    hook_errors = {}
+    if os.path.isfile(cfg_path):
+        bad = broken_hook_paths(cfg_path, root)
+        if bad:
+            hint = "install.sh --user" if at_home else "install.sh"
+            hook_errors[fname] = bad
+            missing.append(f"{fname}: {len(bad)} hook command{'s' if len(bad) != 1 else ''} referencing "
+                           f"missing scripts — rerun {hint}")
     old_dirs = [d for d in OLD_SKILL_DIRS if os.path.isdir(os.path.join(zcode, "skills", d))]
     configs = {}
     verification = {}
@@ -332,7 +462,9 @@ def check(root, pack, host="zcode", home=None, catalog=None):
             needs.append({"kind": "tool", "name": t, "why": why, "command": cmd})
     readiness = helper_readiness(root, host, home, catalog)
     helpers = readiness["ready"]
-    git = is_git_repo(root)
+    # A home root is not a project: never probe it for a git repo (and fix() never
+    # inits one there). None reads as "not applicable", not as red.
+    git = None if at_home else is_git_repo(root)
     ok = []
     if not missing:
         ok.append("super-board skills, scripts and board engine present")
@@ -342,19 +474,23 @@ def check(root, pack, host="zcode", home=None, catalog=None):
         ok.append("git repo found")
     if helpers:
         ok.append("required worker skills resolved for " + host)
-    red = bool(missing or old_dirs or configs or verification or host_errors or not git or needs or not helpers)
+    # Helper-skill readiness (the npx-installed extras) is reported but never
+    # gates the eight-skill pack install: it shows in helper_skills / helper_readiness
+    # and in the text report, not as a red item.
+    red = bool(missing or old_dirs or configs or verification or host_errors or git is False or needs)
     return {
         "root": root, "pack": pack, "pack_version": pack_version, "installed_version": have_v,
         "upgrade": older, "from": from_v or ("older" if older else None),
         "added_skills": upgrade_rec.get("added_skills", []),
         "missing": missing, "old_dirs": old_dirs, "configs": configs, "verification": verification,
-        "host_errors": host_errors, "git": git,
+        "host_errors": host_errors, "hook_errors": hook_errors, "hook_config": cfg_path, "git": git,
         "helper_skills": helpers, "helper_readiness": readiness, "needs": needs, "os": fam, "ok": ok, "green": not red,
     }
 
 
 def backup(root, paths, stamp):
     dest = os.path.join(root, ".zcode", "super-board", "backup", stamp)
+    copied = False
     for p in paths:
         if not os.path.exists(p):
             continue
@@ -362,25 +498,41 @@ def backup(root, paths, stamp):
         target = os.path.join(dest, rel)
         os.makedirs(os.path.dirname(target), exist_ok=True)
         (shutil.copytree if os.path.isdir(p) else shutil.copy2)(p, target)
-    return os.path.relpath(dest, root) + "/"
+        copied = True
+    return os.path.relpath(dest, root) + "/" if copied else None
 
 
 def fix(root, pack, helpers=True, dry=False, host="zcode", home=None, catalog=None):
     before = check(root, pack, host, home, catalog)
+    at_home = home_scoped(root)
     fixed, notes = [], []
     zcode = os.path.join(root, ".zcode")
     stamp = dt.datetime.now().strftime("%Y%m%d-%H%M")
-    to_backup = [os.path.join(zcode, "config.json"), os.path.join(zcode, "super-board", "configs")]
+    to_backup = [before["hook_config"], os.path.join(zcode, "super-board", "configs")]
     to_backup += [os.path.join(zcode, "skills", d) for d in before["old_dirs"]]
     bdir = None
-    if not dry and (before["missing"] or before["old_dirs"] or before["configs"] or before["upgrade"]):
+    if not dry and (before["missing"] or before["old_dirs"] or before["configs"] or before["upgrade"]
+                    or before["hook_errors"]):
         bdir = backup(root, to_backup, stamp)
+
+    # A dead pack-owned command is never repaired by re-merging (the merge dedupes
+    # on the exact string): drop the stranded entry first, then the installer rerun
+    # below re-adds the pack's fresh commands.
+    if before["hook_errors"] and not dry:
+        dead = next(iter(before["hook_errors"].values()), {})
+        removed = prune_dead_hook_commands(before["hook_config"], dead)
+        if removed:
+            fixed.append(f"removed {removed} dead guard command{'s' if removed != 1 else ''} "
+                         f"from {before['hook_config']}")
 
     if before["missing"]:
         if not pack:
             return {**before, "fixed": [], "error": "pack-not-found"}
         if not dry:
-            r = run(["bash", os.path.join(pack, "install.sh"), root],
+            # Repair in the root's own scope: --user for a home root (env HOME
+            # preserved), the project form everywhere else — a home root must
+            # never receive a project install.
+            r = run(["bash", os.path.join(pack, "install.sh")] + (["--user"] if at_home else [root]),
                     input="", cwd=root)
             if r.returncode != 0:
                 return {**before, "fixed": fixed, "error": "install.sh failed: " + (r.stderr or r.stdout)[-300:]}
@@ -417,7 +569,7 @@ def fix(root, pack, helpers=True, dry=False, host="zcode", home=None, catalog=No
             fixed.append(f"config repaired: {rel}")
         notes += ch
 
-    if not before["git"] and have("git"):
+    if not at_home and not before["git"] and have("git"):
         if not dry:
             run(["git", "init", "-q"], cwd=root)
         fixed.append("git repo created (git init)")
@@ -457,7 +609,8 @@ def text_report(res):
         lines.append("  ✓ re-checked: all green")
     elif "fixed" not in res:
         red = res.get("missing", [])[:3] + [f"old folder {d}" for d in res.get("old_dirs", [])] + \
-            [f"config {c} uses old keys" for c in res.get("configs", {})] + ([] if res.get("git") else ["not a git repo"])
+            [f"config {c} uses old keys" for c in res.get("configs", {})] + \
+            ([] if res.get("git") is not False else ["not a git repo"])
         lines += [f"  ✗ {r}" for r in red]
         if red:
             lines.append("  → fix: super-board-setup.py fix")

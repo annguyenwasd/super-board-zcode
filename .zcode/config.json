@@ -25,7 +25,7 @@
           ]
         },
         {
-          "matcher": "Edit|MultiEdit|Write|NotebookEdit|Bash",
+          "matcher": "Edit|Write|Bash",
           "hooks": [
             {
               "type": "command",
@@ -36,21 +36,21 @@
       ],
       "PostToolUse": [
         {
-          "matcher": "Edit|MultiEdit|Write|NotebookEdit",
-          "hooks": [
-            {
-              "type": "command",
-              "command": "python3 \"${ZCODE_PROJECT_DIR}\"/.zcode/hooks/guard-key-literals.py"
-            }
-          ]
-        },
-        {
-          "matcher": "Edit|Write|MultiEdit",
+          "matcher": "Edit|Write",
           "hooks": [
             {
               "type": "command",
               "command": "python3 \"${ZCODE_PROJECT_DIR}\"/scripts/super-board-readme-sync.py --hook 2>/dev/null || true",
               "timeout": 30
+            }
+          ]
+        },
+        {
+          "matcher": "Edit|Write",
+          "hooks": [
+            {
+              "type": "command",
+              "command": "python3 \"${ZCODE_PROJECT_DIR}\"/.zcode/hooks/guard-key-literals.py"
             }
           ]
         }

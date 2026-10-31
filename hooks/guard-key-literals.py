@@ -3,9 +3,9 @@
 
 guard-secrets stops secrets getting OUT (reading dotenv files). This stops them
 getting IN: a key pasted into source, a config file, or a script. Wired on two events:
-  PreToolUse  (Edit|MultiEdit|Write|NotebookEdit|Bash) -> deny before the key hits disk
-  PostToolUse (Edit|MultiEdit|Write|NotebookEdit)      -> catch what got through another
-                                                          path and tell the agent to fix it
+  PreToolUse  (Edit|Write|Bash) -> deny before the key hits disk
+  PostToolUse (Edit|Write)      -> catch what got through another
+                                  path and tell the agent to fix it
 
 It never prints the matched value -- that would put the key in the transcript, the
 thing both guards exist to prevent. Line numbers only. Its own errors never block.
@@ -51,11 +51,8 @@ def visible_text(payload):
     if event == "PreToolUse":
         if tool == "Write":
             return ti.get("content") or ""
-        if tool in ("Edit", "MultiEdit"):
-            parts = [ti.get("new_string") or ""] + [e.get("new_string") or "" for e in ti.get("edits") or []]
-            return "\n".join(parts)
-        if tool == "NotebookEdit":
-            return ti.get("new_source") or ""
+        if tool == "Edit":
+            return ti.get("new_string") or ""
         if tool == "Bash":  # heredocs, echo >> file, sed -i: the other tools never see these
             return ti.get("command") or ""
         return ""

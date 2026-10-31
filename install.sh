@@ -6,12 +6,17 @@
 # (backed up first, never duplicated).
 #
 # Usage:
-#   ./install.sh [--no-hooks] [--protect-main] [target-project-dir]
+#   ./install.sh [--no-hooks] [--protect-main] [--user] [target-project-dir]
 # Defaults to the current working directory. --no-hooks skips the guard hooks
 # and leaves .zcode/config.json untouched. --protect-main also wires the opt-in
 # guard that blocks direct and force pushes to main/master/base_branch; with
 # --no-hooks it installs that one guard alone. The installer asks nothing:
 # super-board onboard asks the questions (protect main is one of them).
+#
+# --user installs for the invoking user instead of into a project: real files
+# in ~/.agents/{skills,bin,hooks,workflows}, links in ~/.zcode/, hooks merged
+# into ~/.zcode/cli/config.json. A target-project argument is rejected, and
+# the project-scoped AGENTS.md block is left alone.
 #
 # Layout: .agents/{skills/<skill>,bin,hooks} hold the files. The .zcode/ folder
 # gets one link per skill under skills/ and one link per file under bin/ and
@@ -32,17 +37,26 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOKS=1
 PROTECT=0
+USER_SCOPE=0
 TARGET=""
 for arg in "$@"; do
   case "$arg" in
     --no-hooks) HOOKS=0 ;;
     --protect-main) PROTECT=1 ;;
-    -h|--help) sed -n '2,28p' "$0"; exit 0 ;;
+    --user) USER_SCOPE=1 ;;
+    -h|--help) sed -n '2,33p' "$0"; exit 0 ;;
     -*) echo "unknown option: $arg" >&2; exit 64 ;;
     *) TARGET="$arg" ;;
   esac
 done
-TARGET="${TARGET:-$PWD}"
+if [ "$USER_SCOPE" -eq 1 ]; then
+  # --user is home-scoped: a target project would silently be ignored, so refuse it.
+  [ -z "$TARGET" ] || { echo "--user installs into the home directory; no target project argument" >&2; exit 64; }
+  [ -n "${HOME:-}" ] && [ -d "$HOME" ] || { echo "--user needs HOME to be set to a directory" >&2; exit 64; }
+  TARGET="$HOME"
+else
+  TARGET="${TARGET:-$PWD}"
+fi
 
 # Primary: the board and its lanes. Secondary: standalone helpers the lanes
 # can call (visual, git-sync, ui-refine-loop). Worktree cleanup (cleanup-wt) is a
@@ -61,6 +75,16 @@ HOSTS="zcode"
 QUIET="${SUPER_BOARD_QUIET_NEXT:-}"
 PACK_VERSION="$(tr -d '[:space:]' < "$REPO_ROOT/VERSION" 2>/dev/null || echo '?')"
 SHARED="$TARGET/.agents"
+# Hook settings file: the project's, or the user's CLI config for --user (its
+# parent is created by merge_settings, which is the only writer).
+SETTINGS="$TARGET/.zcode/config.json"
+SETTINGS_LABEL=".zcode/config.json"
+SCOPE=""
+if [ "$USER_SCOPE" -eq 1 ]; then
+  SETTINGS="$TARGET/.zcode/cli/config.json"
+  SETTINGS_LABEL="~/.zcode/cli/config.json"
+  SCOPE=" (user scope)"
+fi
 
 # Record an upgrade BEFORE the copy overwrites the old VERSION. An install made
 # before .agents/ existed keeps its VERSION under .zcode/skills/super-board.
@@ -79,7 +103,7 @@ if [ -n "$PREV_VERSION" ]; then
   done
 fi
 
-[ -n "$QUIET" ] || echo "🧩 super-board $PACK_VERSION → $TARGET"
+[ -n "$QUIET" ] || echo "🧩 super-board $PACK_VERSION → $TARGET$SCOPE"
 echo "🔧 installing"
 
 # Resolve all skill paths before replacing anything. A destination can contain
@@ -275,39 +299,83 @@ else
 fi
 
 SETTINGS_PY="$REPO_ROOT/scripts/super-board-settings.py"
-# ZCode reads hooks from .zcode/config.json, one level deeper (hooks.events.<Event>,
-# plus hooks.enabled: true, which the helper sets). Stdlib-only merge keeps every
-# existing key and hook, adds each guard command once per event + matcher, backs
-# the file up before writing, and leaves an invalid config.json untouched (exit 2).
-# Prints one summary phrase for the settings line; the helper's own lines (an
-# invalid-JSON refusal) go to stderr untouched.
+# ZCode reads hooks from .zcode/config.json (project) or ~/.zcode/cli/config.json
+# (--user), one level deeper (hooks.events.<Event>, plus hooks.enabled: true,
+# which the helper sets). Stdlib-only merge keeps every existing key and hook,
+# adds each guard command once per event + matcher, backs the file up before
+# writing, and leaves an invalid config.json untouched (exit 2). Prints one
+# summary phrase for the settings line; the helper's own lines (an invalid-JSON
+# refusal) go to stderr untouched.
 merge_settings() {
   local had=0 res rc=0
-  [ -f "$TARGET/.zcode/config.json" ] && had=1
-  res=$(python3 "$SETTINGS_PY" zcode-hooks "$TARGET/.zcode/config.json" "$@" 2>&1) || rc=$?
+  mkdir -p "$(dirname "$SETTINGS")"
+  [ -f "$SETTINGS" ] && had=1
+  res=$(python3 "$SETTINGS_PY" zcode-hooks "$SETTINGS" "$@" 2>&1) || rc=$?
   if [ "$rc" -eq 2 ]; then printf '%s\n' "$res" >&2; echo "not valid JSON — left untouched"
   elif echo "$res" | grep -q "already present"; then echo "already present"
   elif [ "$had" -eq 1 ]; then echo "backup kept"
   else echo "new file"; fi
 }
 
+SNIPPETS=""
 if [ "$HOOKS" -eq 1 ]; then
-  set -- $HOOK_FILES; n=$#
   SNIPPETS="$REPO_ROOT/hooks/settings-snippet.json"
-  if [ "$PROTECT" -eq 1 ]; then SNIPPETS="$SNIPPETS $REPO_ROOT/hooks/settings-protect-main.json"; fi
-  # shellcheck disable=SC2086
-  echo "   🛡️  $n guard hooks → .zcode/config.json ($(merge_settings $SNIPPETS))"
+  [ "$PROTECT" -eq 0 ] || SNIPPETS="$SNIPPETS $REPO_ROOT/hooks/settings-protect-main.json"
 elif [ "$PROTECT" -eq 1 ]; then
   # --no-hooks --protect-main: the one guard asked for, nothing else. This is the
   # command onboard names when its protect-main question finds no guard script.
-  echo "   🛡️  --no-hooks: only the push guard → .zcode/config.json ($(merge_settings "$REPO_ROOT/hooks/settings-protect-main.json"))"
+  SNIPPETS="$REPO_ROOT/hooks/settings-protect-main.json"
+fi
+# The snippets' commands point at the project copy via ${ZCODE_PROJECT_DIR};
+# user-scope hooks run in every project, so each command is rewritten to the
+# user's .agents/ store before the path-agnostic settings helper merges it.
+# The store is addressed as "$HOME/..." (commands are shell-executed by the
+# host), so a moved home directory does not leave dead absolute paths behind.
+# An unknown shape refuses the install rather than wiring a dead command.
+if [ -n "$SNIPPETS" ] && [ "$USER_SCOPE" -eq 1 ]; then
+  SNIPPET_TMP="$(mktemp -d)"
+  trap 'rm -rf "$SNIPPET_TMP"' EXIT
+  USER_SNIPPETS=""
+  for snip in $SNIPPETS; do
+    SNIP_DST="$SNIPPET_TMP/$(basename "$snip")"
+    python3 - "$snip" "$SNIP_DST" <<'PY'
+import json, re, sys
+src, dst = sys.argv[1], sys.argv[2]
+doc = json.load(open(src))
+def rew(cmd):
+    m = re.match(r'^python3 "\$\{ZCODE_PROJECT_DIR\}"/\.zcode/hooks/(\S+)(.*)$', cmd)
+    if m:
+        return f'python3 "$HOME/.agents/hooks/{m.group(1)}"{m.group(2)}'
+    m = re.match(r'^cd "\$\{ZCODE_PROJECT_DIR\}" && python3 \.zcode/hooks/(\S+)(.*)$', cmd)
+    if m:
+        return f'cd "${{ZCODE_PROJECT_DIR}}" && python3 "$HOME/.agents/hooks/{m.group(1)}"{m.group(2)}'
+    sys.exit(f"    ✗ snippet command shape unknown for --user: {cmd}")
+for entries in doc.get("hooks", {}).values():
+    for e in entries:
+        for h in e.get("hooks", []):
+            h["command"] = rew(h["command"])
+open(dst, "w").write(json.dumps(doc))
+PY
+    USER_SNIPPETS="$USER_SNIPPETS $SNIP_DST"
+  done
+  SNIPPETS="$USER_SNIPPETS"
+fi
+
+if [ "$HOOKS" -eq 1 ]; then
+  set -- $HOOK_FILES; n=$#
+  # shellcheck disable=SC2086
+  echo "   🛡️  $n guard hooks → $SETTINGS_LABEL ($(merge_settings $SNIPPETS))"
+elif [ "$PROTECT" -eq 1 ]; then
+  # shellcheck disable=SC2086
+  echo "   🛡️  --no-hooks: only the push guard → $SETTINGS_LABEL ($(merge_settings $SNIPPETS))"
 else
   echo "   ⏭️  guard hooks skipped (--no-hooks)"
 fi
 
 # AGENTS.md: a re-install refreshes the managed super-board block and touches
 # nothing outside its markers. No block yet → onboard writes it (with consent).
-if [ -f "$TARGET/AGENTS.md" ] && grep -q '^<!-- super-board:begin' "$TARGET/AGENTS.md"; then
+# Project-scoped: --user never touches any project's AGENTS.md.
+if [ "$USER_SCOPE" -eq 0 ] && [ -f "$TARGET/AGENTS.md" ] && grep -q '^<!-- super-board:begin' "$TARGET/AGENTS.md"; then
   python3 "$REPO_ROOT/scripts/super-board-agents-md.py" block --root "$TARGET" \
     --template "$REPO_ROOT/skills/super-board/references/agents-md-block.md" \
     --version "$PACK_VERSION" >/dev/null 2>&1 \

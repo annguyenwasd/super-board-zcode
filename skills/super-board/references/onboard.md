@@ -4,7 +4,10 @@ Config schema and field notes: `config-schema.json`. Loaded by `SKILL.md` for `s
 
 **Where it runs:** the current ZCode session, in the user's folder. Not headless.
 Invoked as `/super-board onboard` (get.sh / install.sh) or `/super-board:super-board onboard`
-(plugin install — skill names carry the plugin prefix).
+(plugin install — skill names carry the plugin prefix). An `install.sh --user`
+install keeps the skills, worker helpers and guard hooks in `~/.zcode` instead of
+the project, so the wizard works from any project; the board itself
+(`.zcode/super-board/` config, worktrees, GitHub Project) is still created per project.
 
 ## Host-visible skill checks
 
@@ -31,7 +34,8 @@ only enabled entries applying to this project count.
 | Write once | files in the repo (config, .zcode/config.json, AGENTS.md, docs) change only at step 8, after "Write everything". GitHub-side actions the user just picked (create or extend the board, create `staging`) run in their own step |
 | Secrets | NEVER read, grep, cat or source a dotenv file. Key names only, via `.zcode/bin/super-board-env-check.sh` |
 
-**Scripts.** `SB=.zcode/bin` after an install. Plugin install before step 1 has run: the plugin's
+**Scripts.** `SB=.zcode/bin` after a project install; with `install.sh --user` there is no
+project `.zcode/bin` — use `SB=~/.zcode/bin` instead. Plugin install before step 1 has run: the plugin's
 own copy, `PACK=$(dirname "$(find ~/.zcode/cli/plugins -path '*super-board*' -name install.sh -not -path
 '*/node_modules/*' 2>/dev/null | head -1)")`, `SB=$PACK/scripts`. `$PACK` empty → `🛑 Can't find the
 super-board plugin files. Run the one-line installer (get.sh) or ./install.sh <this-dir> from a

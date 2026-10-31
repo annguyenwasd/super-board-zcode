@@ -17,6 +17,8 @@ Super Build is the canonical builder. Do not use a separate `build-feature` work
 
 Super Build may implement, test, commit, push, open PRs, and move project cards to `QA`. It never merges, closes issues, or moves cards to `Done` — the Reviewer does that through the merge gate. It should not invent new product scope beyond the issue body. If the issue needs product/design/security judgment, apply the human-gate or WIP-partial path instead of guessing.
 
+Dispatcher scripts are invoked where the install put them: project install → `.zcode/bin/<script>`; user install (`install.sh --user`) → `~/.zcode/bin/<script>`. Paths below show the project form.
+
 **GitHub budget** — every "move card" is `.zcode/bin/super-board-card.sh --config <cfg> move <N> <Status>` (1 GraphQL point; `gh project item-list` / `field-list` cost ~100–200). Comments, labels and PR reads go over REST; [rate-limit-etiquette.md](../super-board/references/rate-limit-etiquette.md) → "Price list" has the calls.
 
 ## Configuration

@@ -39,6 +39,8 @@ No job, cadence or scheduler is created by this skill.
 4. Snapshot the board through `.zcode/bin/super-board-github-read.py --kind items -- project item-list <number> --owner <owner> --format json --limit 500`. A count mismatch or read failure halts; never treat a partial board as complete.
    It is the dedupe set for verification and the "not on the board" set for `github`.
 
+Dispatcher scripts are invoked where the install put them: project install → `.zcode/bin/<script>`; user install (`install.sh --user`) → `~/.zcode/bin/<script>`. Paths below show the project form.
+
 Scripts live in `.zcode/skills/super-collect/scripts/` (`S=` below). Every fetcher takes
 `--since` and prints JSON; a fetcher that cannot reach its source prints
 `{"status":"unavailable","error":…}` and exits 2. Record each source as `read (n)`, `empty`,

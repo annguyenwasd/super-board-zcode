@@ -1,0 +1,3 @@
+# Release archives (git archive: GitHub's auto-generated source zip/tar.gz for a
+# tag) skip the audit trail; it stays tracked for local history.
+.audit/ export-ignore

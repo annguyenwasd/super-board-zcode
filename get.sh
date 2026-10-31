@@ -9,7 +9,8 @@
 #   --ref <tag|branch>    which version to fetch (default: the latest release)
 #   --no-helper-skills    skip `npx skills@latest add mattpocock/skills`
 #   -h, --help            show this help
-# Passed through to install.sh: --no-hooks, --protect-main, --hosts=<list>.
+# Passed through to install.sh: --no-hooks, --protect-main, --user (installs
+# into your home directory; no --target or folder argument allowed).
 #
 # Environment:
 #   SUPER_BOARD_REF       same as --ref
@@ -43,7 +44,7 @@ helper_skills_present() {
 }
 
 main() {
-  local target="" ref="${SUPER_BOARD_REF:-}" helpers=1
+  local target="" ref="${SUPER_BOARD_REF:-}" helpers=1 user_scope=0
   local repo="${SUPER_BOARD_REPO:-annguyenwasd/super-board-zcode}"
   local pass=()
 
@@ -54,11 +55,19 @@ main() {
       --ref) [ $# -ge 2 ] || die "--ref needs a tag or branch name" 64; ref="$2"; shift 2 ;;
       --ref=*) ref="${1#--ref=}"; shift ;;
       --no-helper-skills) helpers=0; shift ;;
+      --user) user_scope=1; pass+=("$1"); shift ;;
       -h|--help) usage; exit 0 ;;
       -*) pass+=("$1"); shift ;;
       *) [ -z "$target" ] || die "two target folders given: '$target' and '$1'" 64; target="$1"; shift ;;
     esac
   done
+  # --user installs into the home directory: a target folder would be dropped
+  # by install.sh, so refuse it here where the intent is visible.
+  if [ "$user_scope" -eq 1 ]; then
+    [ -z "$target" ] || die "--user installs into your home directory; no --target or folder argument" 64
+    target="${HOME:-}"
+    [ -n "$target" ] && [ -d "$target" ] || die "--user needs HOME to be set to a directory" 64
+  fi
   target="${target:-$PWD}"
 
   # --- safety -----------------------------------------------------------
@@ -69,7 +78,11 @@ main() {
   target="$(cd "$target" && pwd)"
 
   say "🧩 super-board installer"
-  say "   target: $target"
+  if [ "$user_scope" -eq 1 ]; then
+    say "   target: $target (user scope)"
+  else
+    say "   target: $target"
+  fi
 
   # --- prerequisites ----------------------------------------------------
   local fetch=""
@@ -146,11 +159,16 @@ except Exception: print("")' 2>/dev/null || true)"
 
   # --- install ----------------------------------------------------------
   # Quiet mode: install.sh prints only its "🔧 installing" group; the summary is ours.
-  SUPER_BOARD_QUIET_NEXT=1 bash "$src/install.sh" ${pass[@]+"${pass[@]}"} "$target" || die "install.sh stopped with an error (see above). Nothing else was changed after that point." 1
+  # --user is forwarded without a target: install.sh scopes it to $HOME itself.
+  local dest_args=()
+  [ "$user_scope" -eq 1 ] || dest_args=("$target")
+  SUPER_BOARD_QUIET_NEXT=1 bash "$src/install.sh" ${pass[@]+"${pass[@]}"} ${dest_args[@]+"${dest_args[@]}"} || die "install.sh stopped with an error (see above). Nothing else was changed after that point." 1
 
   # --- helper skills ----------------------------------------------------
   local helper_note
-  if [ "$helpers" -eq 0 ]; then
+  if [ "$user_scope" -eq 1 ]; then
+    helper_note="skipped — helpers install per project (run without --user inside a project)"
+  elif [ "$helpers" -eq 0 ]; then
     case " $later " in
       *" node "*) helper_note="skipped — 🔍 Checks will fix this" ;;
       *) helper_note="skipped (--no-helper-skills)" ;;

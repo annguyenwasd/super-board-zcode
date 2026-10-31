@@ -26,6 +26,7 @@ OUT=$(python3 "$SETUP" fix --root "$T" --no-helpers || true)
 echo "$OUT" | q '.fixed | index("super-board skills, scripts and board engine installed")' || fail "fix should install: $OUT"
 echo "$OUT" | q '.fixed | index("git repo created (git init)")' || fail "fix should git init: $OUT"
 echo "$OUT" | q '.missing == [] and .git == true and .upgraded == false' || fail "re-check after fix should have nothing missing: $OUT"
+echo "$OUT" | q '.backup == null' || fail "a fresh install has nothing to back up, so backup must be null: $OUT"
 [ -x "$T/.zcode/bin/super-board-setup.py" ] || fail "the setup script installs itself into .zcode/bin"
 TXT=$(python3 "$SETUP" check --root "$T" --text || true)
 echo "$TXT" | grep -q "✓ super-board skills, scripts and board engine present" || fail "text report should list what is present: $TXT"
@@ -343,4 +344,131 @@ echo "$OUT" | q '.missing == []' || fail "wired .zcode/config.json must satisfy 
 OUT=$(python3 "$SETUP" check --root "$T" --host gemini 2>&1 || true)
 echo "$OUT" | grep -q "must be zcode" || fail "host gemini must still be rejected: $OUT"
 
-echo "PASS: test-setup.sh (14 scenarios)"
+# 15 — a hook command whose script path no longer resolves (moved home, deleted
+#      store) is a loud check failure in each scope on that scope's own surface,
+#      with the repair hint; a valid config passes. Both command shapes are
+#      exercised: project-relative (${ZCODE_PROJECT_DIR}) and "$HOME"/absolute.
+#      Surfaces are exclusive: a project check never scans the user config and
+#      vice versa, so the user-scope parts below run at root == home.
+T="$WORK/bare"
+python3 - "$T/.zcode/config.json" <<'PY'
+import json, sys
+doc = json.load(open(sys.argv[1]))
+doc["hooks"]["events"]["PreToolUse"][0]["hooks"].append(
+    {"type": "command", "command": "python3 \"${ZCODE_PROJECT_DIR}\"/.zcode/hooks/guard-gone.py"})
+json.dump(doc, open(sys.argv[1], "w"))
+PY
+OUT=$(python3 "$SETUP" check --root "$T" --host zcode || true)
+echo "$OUT" | q '.missing == [".zcode/config.json: 1 hook command referencing missing scripts — rerun install.sh"]' \
+  || fail "a broken project hook path must be the only red item: $OUT"
+TXT=$(python3 "$SETUP" check --root "$T" --text || true)
+echo "$TXT" | grep -q "rerun install.sh" || fail "the text report must carry the repair hint: $TXT"
+mkdir -p "$HOME/.zcode/cli"
+printf '%s' '{"hooks":{"enabled":true,"events":{"SessionStart":[{"hooks":[{"type":"command","command":"python3 \"$HOME/.agents/hooks/guard-home-gone.py\""}]}]}}}' \
+  > "$HOME/.zcode/cli/config.json"
+OUT=$(python3 "$SETUP" check --root "$HOME" --host zcode || true)
+echo "$OUT" | q '.missing | index("~/.zcode/cli/config.json: 1 hook command referencing missing scripts — rerun install.sh --user")' \
+  || fail "a broken user-scope hook path must be flagged at root=home with the --user hint: $OUT"
+mkdir -p "$HOME/.agents/hooks" && touch "$HOME/.agents/hooks/guard-home-gone.py"
+# a legacy absolute-path command (round-1 installs) breaks when the home moves
+printf '%s' '{"hooks":{"enabled":true,"events":{"SessionStart":[{"hooks":[{"type":"command","command":"python3 \"$HOME/gone-forever/.agents/hooks/guard-old.py\""}]}]}}}' \
+  > "$HOME/.zcode/cli/config.json"
+OUT=$(python3 "$SETUP" check --root "$HOME" --host zcode || true)
+echo "$OUT" | q '.hook_errors | length == 1' \
+  || fail "at root=home only the user config is scanned: $OUT"
+touch "$T/.zcode/hooks/guard-gone.py"
+printf '%s' '{"hooks":{"enabled":true,"events":{"SessionStart":[{"hooks":[{"type":"command","command":"python3 \"$HOME/.agents/hooks/guard-home-gone.py\""}]}]}}}' \
+  > "$HOME/.zcode/cli/config.json"
+OUT=$(python3 "$SETUP" check --root "$T" --host zcode || true)
+echo "$OUT" | q '.missing == [] and .hook_errors == {}' \
+  || fail "restoring the referenced scripts must go green again: $OUT"
+rm -rf "$HOME/.zcode/cli" "$HOME/.agents"
+
+# 16 — a user-scope install is certifiable: at root == home the check reads
+#      ~/.zcode/cli/config.json (commands normalized back to the canonical
+#      project forms) and probes ~/.zcode — zero missing. A project root reads
+#      ONLY its own .zcode/config.json: absent = one loud "no hook config wired"
+#      line, with probes still resolving through the user surface (a --user
+#      install serves every project) — never 40 false missing, never a silent
+#      fallback of the wiring check. An unresolvable ${VAR} command path is
+#      broken, not environment-resolved.
+bash "$PACK/install.sh" --user >/dev/null 2>&1 || fail "user install failed"
+OUT=$(python3 "$SETUP" check --root "$HOME" || true)
+echo "$OUT" | q '.missing == [] and .hook_errors == {}' \
+  || fail "user-scope install: wiring must certify root=home clean: $OUT"
+echo "$OUT" | q '.green == (.needs == [])' \
+  || fail "helper-skill readiness must not gate green for a pristine pack install: $OUT"
+T="$WORK/user16"; mkdir -p "$T/.zcode"
+OUT=$(python3 "$SETUP" check --root "$T" || true)
+echo "$OUT" | q '.missing == [".zcode/config.json: no hook config wired — rerun install.sh"] and .hook_errors == {}' \
+  || fail "a project root must loudly miss its own config, and only that: $OUT"
+printf '%s' '{"hooks":{"enabled":true,"events":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"python3 \"${CLAUDE_PROJECT_DIR}/.zcode/hooks/guard-x.py\""}]}]}}}' \
+  > "$T/.zcode/config.json"
+OUT=$(python3 "$SETUP" check --root "$T" || true)
+echo "$OUT" | q '.hook_errors | length == 1' \
+  || fail "an unresolvable ${VAR} command path must be flagged, not env-resolved: $OUT"
+
+# 17 — scope isolation: a project check is driven by its own surface only. A
+#      deliberately broken user config stays invisible to it (and the project
+#      still goes green), while the same broken config is loud at root == home.
+T="$WORK/proj17"; mkdir -p "$T"
+bash "$PACK/install.sh" "$T" >/dev/null 2>&1 || fail "project install failed"
+git -C "$T" init -q
+printf '%s' '{"hooks":{"enabled":true,"events":{"SessionStart":[{"hooks":[{"type":"command","command":"python3 \"$HOME/gone-forever/.agents/hooks/guard-old.py\""}]}]}}}' \
+  > "$HOME/.zcode/cli/config.json"
+OUT=$(python3 "$SETUP" check --root "$T" || true)
+echo "$OUT" | q '.missing == [] and .hook_errors == {} and .git == true' \
+  || fail "a project check must be green regardless of the user config: $OUT"
+OUT=$(python3 "$SETUP" check --root "$HOME" || true)
+echo "$OUT" | q '.missing | index("~/.zcode/cli/config.json: 1 hook command referencing missing scripts — rerun install.sh --user")' \
+  || fail "the same broken user config must be loud at root=home: $OUT"
+bash "$PACK/install.sh" --user >/dev/null 2>&1 || fail "user config restore failed"
+# the merge adds missing commands but never drops one: remove the broken legacy entry by hand
+jq '.hooks.events.SessionStart[0].hooks |= map(select(.command | contains("gone-forever") | not))' \
+  "$HOME/.zcode/cli/config.json" > "$WORK/uc" && mv "$WORK/uc" "$HOME/.zcode/cli/config.json"
+
+# 18 — fix --root <home> repairs through install.sh --user (HOME env preserved):
+#      the user config gets its missing entries back, no project-form
+#      .zcode/config.json and no .git appear in the home.
+jq '.hooks.events.PreToolUse[0].hooks |= map(select(.command | contains("guard-delete-outside") | not))' \
+  "$HOME/.zcode/cli/config.json" > "$WORK/uc" && mv "$WORK/uc" "$HOME/.zcode/cli/config.json"
+OUT=$(python3 "$SETUP" fix --root "$HOME" --no-helpers || true)
+jq -e --arg c 'python3 "$HOME/.agents/hooks/guard-delete-outside.py"' \
+  '[.hooks.events[][].hooks[].command] | index($c) != null' "$HOME/.zcode/cli/config.json" >/dev/null \
+  || fail "fix at home must restore the deleted user config entry: $(cat "$HOME/.zcode/cli/config.json")"
+[ ! -e "$HOME/.zcode/config.json" ] || fail "fix at home must not create the project-form config"
+[ ! -e "$HOME/.git" ] || fail "fix at home must not git init the home"
+OUT=$(python3 "$SETUP" check --root "$HOME" || true)
+echo "$OUT" | q '.missing == [] and .hook_errors == {}' \
+  || fail "fix at home must leave the user scope clean: $OUT"
+
+# 19 — a dead pack-owned command in the live hooks.events shape is repaired, not
+#      just reported: fix() drops the stranded entry (config backed up first),
+#      reruns the scope-correct installer so the fresh commands are re-wired, and
+#      the after-check is green. Foreign commands stay; a store file deleted under
+#      a still-wired command (the rename-stranding case) comes back whole.
+printf '%s' '{"hooks":{"enabled":true,"events":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"python3 \"$HOME/.agents/hooks/guard-worktree-path.py\""},{"type":"command","command":"python3 \"$HOME/.agents/hooks/guard-NOTREAL.py\""},{"type":"command","command":"echo mine"}]}]}}}' \
+  > "$HOME/.zcode/cli/config.json"
+OUT=$(python3 "$SETUP" check --root "$HOME" || true)
+echo "$OUT" | q '.hook_errors | length == 1' \
+  || fail "the seeded dead command must be flagged: $OUT"
+OUT=$(python3 "$SETUP" fix --root "$HOME" --no-helpers || true)
+echo "$OUT" | q '.missing == [] and .hook_errors == {} and .green == (.needs == [])' \
+  || fail "fix must come back green after dropping the dead command: $OUT"
+echo "$OUT" | q '.fixed | any(test("dead guard command"))' \
+  || fail "the repair must name the dropped command: $OUT"
+q '[.hooks.events[][].hooks[].command]
+   | (index("python3 \"$HOME/.agents/hooks/guard-NOTREAL.py\"") == null)
+     and (index("echo mine") != null) and (length == 7)' "$HOME/.zcode/cli/config.json" \
+  || fail "the dead command must be gone, foreign and re-wired commands kept: $(cat "$HOME/.zcode/cli/config.json")"
+B=$(echo "$OUT" | jq -r .backup)
+[ -f "$HOME/$B/.zcode/cli/config.json" ] || fail "the config must be backed up before the prune (backup: $B)"
+rm "$HOME/.agents/hooks/guard-secrets.py"
+OUT=$(python3 "$SETUP" fix --root "$HOME" --no-helpers || true)
+echo "$OUT" | q '.missing == [] and .hook_errors == {}' \
+  || fail "a stranded guard must be re-installed and re-wired: $OUT"
+[ -f "$HOME/.agents/hooks/guard-secrets.py" ] || fail "the deleted guard file must be restored"
+q '[.hooks.events[][].hooks[].command] | index("python3 \"$HOME/.agents/hooks/guard-secrets.py\"") != null' \
+  "$HOME/.zcode/cli/config.json" || fail "the guard command must be re-wired"
+
+echo "PASS: test-setup.sh (19 scenarios)"
